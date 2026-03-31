@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Erfcontrole Westerkwartier</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans',sans-serif;background:#0d1117;color:#e6edf3;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+#header{background:#161b22;border-bottom:2px solid #21262d;padding:9px 14px 8px;flex-shrink:0;}
+#htop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#58a6ff;letter-spacing:.06em;}
+#stats{display:flex;gap:10px;}
+.stat{display:flex;align-items:center;gap:5px;font-size:12px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.2);}
+.dr{background:#f85149;}.dg{background:#3fb950;}.do{background:#ff9500;}.dw{background:#6e7681;}
+#prow{display:flex;align-items:center;gap:8px;}
+#pbg{flex:1;height:11px;background:#21262d;border-radius:6px;overflow:hidden;border:1px solid #30363d;}
+#pfill{height:100%;width:0%;background:linear-gradient(90deg,#238636,#3fb950);border-radius:6px;transition:width .8s ease;}
+#plbl{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e6edf3;font-weight:600;white-space:nowrap;min-width:95px;text-align:right;}
+#loading{position:absolute;inset:0;background:#0d1117;z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#loading h2{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#58a6ff;}
+#loadmsg{font-size:11px;color:#8b949e;font-family:'IBM Plex Mono',monospace;max-width:280px;text-align:center;line-height:1.5;}
+#loadbar-bg{width:260px;height:8px;background:#21262d;border-radius:4px;overflow:hidden;}
+#loadbar-fill{height:100%;width:0%;background:#58a6ff;border-radius:4px;transition:width .3s;}
+.spinner{width:34px;height:34px;border:3px solid #21262d;border-top-color:#58a6ff;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#map{flex:1;}
+#bot{background:#161b22;border-top:1px solid #21262d;padding:7px 10px;display:flex;gap:6px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.btn{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:7px 12px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#e6edf3;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.btn:active,.btn.on{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
+#alert{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1117;border:2px solid #f85149;border-radius:14px;padding:18px 22px;z-index:2500;display:none;text-align:center;min-width:250px;max-width:300px;box-shadow:0 8px 40px rgba(248,81,73,.4);}
+#alert h3{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#f85149;margin-bottom:8px;}
+#alert p{font-size:12px;color:#e6edf3;line-height:1.6;}
+#alert-nav{display:block;width:100%;margin-top:12px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #58a6ff;color:#58a6ff;border-radius:5px;cursor:pointer;}
+#alert-close{display:block;width:100%;margin-top:6px;padding:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;background:transparent;border:1px solid #30363d;color:#8b949e;border-radius:5px;cursor:pointer;}
+#syncbadge{position:absolute;top:82px;right:10px;background:#161b22dd;border:1px solid #30363d;border-radius:20px;padding:3px 10px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:#8b949e;z-index:500;}
+#debugbox{position:absolute;top:82px;left:10px;right:10px;background:#161b22ee;border:1px solid #ff9500;border-radius:8px;padding:10px 12px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:#ff9500;z-index:1500;display:none;max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+#fp{position:absolute;bottom:54px;left:10px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;z-index:1000;display:none;min-width:215px;box-shadow:0 8px 32px rgba(0,0,0,.8);}
+#fp h3{font-size:11px;color:#58a6ff;font-family:'IBM Plex Mono',monospace;margin-bottom:12px;}
+.fr{display:flex;align-items:center;gap:9px;margin-bottom:10px;cursor:pointer;}
+.fr:last-child{margin-bottom:0;}
+.fr label{font-size:12px;cursor:pointer;color:#ccc;}
+.fr input{cursor:pointer;accent-color:#58a6ff;width:16px;height:16px;}
+#dp{position:absolute;bottom:54px;right:10px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;z-index:1000;display:none;width:245px;box-shadow:0 8px 32px rgba(0,0,0,.8);}
+.dpc{position:absolute;top:9px;right:11px;background:none;border:none;color:#6e7681;cursor:pointer;font-size:18px;}
+.dsrc{display:inline-block;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:2px 8px;border-radius:3px;margin-bottom:8px;}
+.sv{background:#1f2d3d;color:#58a6ff;border:1px solid #1f3a5f;}
+.sl{background:#2d1f3d;color:#bc8cff;border:1px solid #3a1f5f;}
+.dn{font-weight:600;font-size:13px;margin-bottom:5px;line-height:1.3;}
+.da{font-size:11px;color:#8b949e;font-family:'IBM Plex Mono',monospace;margin-bottom:6px;line-height:1.5;}
+.ds{font-size:11px;color:#adbac7;margin-bottom:10px;line-height:1.4;}
+.badge{display:inline-block;font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 10px;border-radius:4px;font-weight:600;margin-bottom:10px;}
+.br{background:#3d1a1a;color:#f85149;border:1px solid #f85149;}
+.bgg{background:#1a3d1f;color:#3fb950;border:1px solid #3fb950;}
+.bo{background:#3d2a0a;color:#ff9500;border:1px solid #ff9500;}
+.bw{background:#21262d;color:#8b949e;border:1px solid #484f58;}
+.dnav{display:block;width:100%;margin-top:5px;padding:9px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
+.dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
+.leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><h2>KAART LADEN</h2><div id="loadmsg">Even geduld...</div><div id="loadbar-bg"><div id="loadbar-fill"></div></div></div>
+<div id="alert"><h3>🚨 CONTROLE IN DE BUURT!</h3><p id="alert-text"></p><button id="alert-nav" onclick="navToAlert()">🗺 Navigeer hierheen</button><button id="alert-close" onclick="closeAlert()">Doorgaan</button></div>
+<div id="header">
+  <div id="htop">
+    <h1>⚡ ERFCONTROLE — WESTERKWARTIER</h1>
+    <div id="stats">
+      <div class="stat"><div class="dot dr"></div><span id="cr">–</span></div>
+      <div class="stat"><div class="dot dg"></div><span id="cg">–</span></div>
+      <div class="stat"><div class="dot do"></div><span id="co">–</span></div>
+      <div class="stat"><div class="dot dw"></div><span id="cw">–</span></div>
+    </div>
+  </div>
+  <div id="prow"><div id="pbg"><div id="pfill"></div></div><div id="plbl">0 / 50 (0%)</div></div>
+</div>
+<div id="map"></div>
+<div id="syncbadge">⏱ laden...</div>
+<div id="debugbox"></div>
+<div id="fp">
+  <h3>🔍 FILTER</h3>
+  <div class="fr"><input type="checkbox" id="fR" checked onchange="render()"><label for="fR">🔴 Nog te controleren</label></div>
+  <div class="fr"><input type="checkbox" id="fG" checked onchange="render()"><label for="fG">🟢 Gecontroleerd (goed)</label></div>
+  <div class="fr"><input type="checkbox" id="fO" checked onchange="render()"><label for="fO">🟠 Hercontrole / fout</label></div>
+  <div class="fr"><input type="checkbox" id="fW" checked onchange="render()"><label for="fW">⚪ Gestopt</label></div>
+</div>
+<div id="dp"><button class="dpc" onclick="closeDp()">✕</button><div id="dpc"></div></div>
+<div id="bot">
+  <button class="btn" id="bgps" onclick="toggleGPS()">🚗 Rijden</button>
+  <button class="btn" id="bfp" onclick="toggleFp()">🔍 Filter</button>
+  <button class="btn" onclick="zoomAll()">🗺 Overzicht</button>
+  <button class="btn" onclick="zoomTodo()">🔴 Te doen</button>
+  <button class="btn" onclick="syncSheets()">🔄 Ververs</button>
+  <button class="btn" onclick="toggleDebug()">🔧 Debug</button>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq3URzL5qqMcbj0YLmhXxbT6tlMSW_NBIbEvERhtZMi_Fuxd6JBohNO0lqIuZPgr65AiViZ_qqxEod/pub?output=csv';
+const TOTAAL  = 45; // Bijgewerkt: 50 - 5 verwijderd = 45
+const PROX_M  = 200;
+
+// EXACTE NAMEN UIT SHEET — 4 niet-bestaande verwijderd:
+// Horenga Agro, Maatschap Mulder, J. van Os-Cornello, Ausma
+const ADRESSEN = [
+  // NOORDWIJK
+  {naam:"Mts. Postmus G. en J.D.",                       q:"Oudeweg 6, Noordwijk, Groningen",            src:"Veeteelt", soort:"Houden van melkvee", alt:"postmus"},
+  {naam:"M. Zwama",                                       q:"Westerweg 44, Noordwijk, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Maatschap K.J. VD Veen En R.J. VD Veen-Rozema", q:"Westerweg 37, Noordwijk, Groningen",         src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"Maatschap S. Terpstra en H.J. Terpstra",         q:"Westerweg 43, Noordwijk, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+  // OLDEKERK
+  {naam:"G. de Jong",                                     q:"Eekebuursterweg 48, Oldekerk, Groningen",    src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"Long Snout Pork",                                q:"Eekebuursterweg 21, Oldekerk, Groningen",    src:"Veeteelt", soort:"Vleesvarkensbedrijven"},
+  {naam:"Jansma, J.",                                     q:"Hoendiep 7, Oldekerk, Groningen",            src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"M & M Bakker",                                   q:"Hoendiep 4, Oldekerk, Groningen",            src:"Veeteelt", soort:"Opfokken jongvee"},
+  {naam:"Maatschap K.W. de Jong en K.C. de Jong-Staal",  q:"Hoendiep 2, Oldekerk, Groningen",            src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Pluimveebedrijf Abma Oldekerk B.V.",             q:"Hoendiep 6, Oldekerk, Groningen",            src:"Veeteelt", soort:"Opfokken/houden ouderdieren"},
+  {naam:"E. Beute",                                       q:"Kuzemerweg 38, Oldekerk, Groningen",         src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"Manege Stal 'De Wijk'",                          q:"Kuzemerweg 18, Oldekerk, Groningen",         src:"Veeteelt", soort:"Fokken en houden van paarden"},
+  {naam:"J. Huistra",                                     q:"Kroonsfelderweg 17, Oldekerk, Groningen",    src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"H. Heerssema",                                   q:"Kuzemerweg 32, Oldekerk, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Mts. W.P. + A. + A.W. Renkema",                 q:"Kuzemerweg 24, Oldekerk, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"V.O.F. Van der Meulen",                          q:"Kuzemerweg 34, Oldekerk, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Paardenrusthuis De Kuzemer",                     q:"Kuzemerweg 22, Oldekerk, Groningen",         src:"Veeteelt", soort:"Paardenhouderij"},
+  {naam:"J. Hut",                                         q:"Langewolderweg 22, Oldekerk, Groningen",     src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"J. Kazemier",                                    q:"Langewolderweg 7, Oldekerk, Groningen",      src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"Maatschap Westers-Norden",                       q:"Mensumaweg 2, Oldekerk, Groningen",          src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Mts. J. en D. en J. de Jong - VD Berg",          q:"Mensumaweg 4, Oldekerk, Groningen",          src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Melkveebedrijf Kroonsfeld",                      q:"Zandumerweg 29, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Arkies-Westerhof",                               q:"Zandumerweg 47, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"F. Helmus",                                      q:"Zandumerweg 61, Oldekerk, Groningen",        src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"Firma Rootinck-van Koten",                       q:"Zandumerweg 45, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"G.P. Veen en G. Veen-Speijer",                  q:"Zandumerweg 19, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Huistra, S.",                                    q:"Zandumerweg 52, Oldekerk, Groningen",        src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"J. Bos",                                         q:"Zandumerweg 37, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"J.H. van Woudenbergh",                           q:"Zandumerweg 68, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Maatschap Havinga-Heuker",                       q:"Zandumerweg 43, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Melkveebedrijf Boersema V.O.F.",                 q:"Zandumerweg 41, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"P. Postma",                                      q:"Zandumerweg 21, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"V.O.F. Gorter-Helmus",                           q:"Zandumerweg 51, Oldekerk, Groningen",        src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Mts. Wielsma-de Vries",                          q:"Zandumerweg 23, Oldekerk, Groningen",        src:"Veeteelt", soort:"Fokken en houden van paarden"},
+  // SEBALDEBUREN
+  {naam:"J. van Luit en K.R. Bakker",                    q:"Buikstede 5, Sebaldeburen, Groningen",       src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Melkveebedrijf Horenga",                         q:"Provincialeweg 6, Sebaldeburen, Groningen",  src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Schapenhouderij Pama",                           q:"Provincialeweg 91, Sebaldeburen, Groningen", src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"Westerhof Sebaldeburen",                         q:"Provincialeweg 36, Sebaldeburen, Groningen", src:"Veeteelt", soort:"Veehouderij"},
+  {naam:"Maatsch. A. de Kreij en J.F. de Kreij-Folkers",  q:"Provincialeweg 1, Sebaldeburen, Groningen",  src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"A.H. Arkies",                                    q:"Westerzand 7, Sebaldeburen, Groningen",      src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"F.J. Couperus",                                  q:"Westerzand 2, Sebaldeburen, Groningen",      src:"Veeteelt", soort:"Fokken en houden van schapen"},
+  {naam:"Huisma",                                         q:"Westerzand 24, Sebaldeburen, Groningen",     src:"Veeteelt", soort:"Overige vleesveehouderij"},
+  {naam:"Vleesveehouderij P. Huisma",                     q:"Westerzand 26, Sebaldeburen, Groningen",     src:"Veeteelt", soort:"Overige vleesveehouderij"},
+  {naam:"F. Venema",                                      q:"Westerzand 1, Sebaldeburen, Groningen",      src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"Melkveehouderijbedrijf Bouwkamp",                q:"Westerzand 18, Sebaldeburen, Groningen",     src:"Veeteelt", soort:"Houden van melkvee"},
+  {naam:"R.J. Couperus",                                  q:"Woldweg 7, Sebaldeburen, Groningen",         src:"Veeteelt", soort:"Houden van melkvee"},
+];
+
+let LOCS=ADRESSEN.map((a,i)=>({...a,id:i+1,lat:null,lon:null,status:'todo'}));
+
+const map=L.map('map',{zoomControl:true,tap:true}).setView([53.08,6.37],13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+let markers=[],selId=null,carMarker=null,gpsOn=false,gpsWatcher=null;
+let myLat=null,myLon=null,myHeading=0,lastAlertTime=0,alertLoc=null,debugVisible=false;
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function geocodeOne(q){
+  const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=nl`;
+  const r=await fetch(url,{headers:{'User-Agent':'WaterschapNZ-ErfControle/4.0'}});
+  const d=await r.json();
+  return d&&d[0]?{lat:parseFloat(d[0].lat),lon:parseFloat(d[0].lon)}:null;
+}
+
+async function geocodeAll(){
+  const n=LOCS.length;
+  for(let i=0;i<n;i++){
+    const loc=LOCS[i];
+    document.getElementById('loadmsg').textContent=`Adres ${i+1}/${n}: ${loc.naam.substring(0,28)}...`;
+    document.getElementById('loadbar-fill').style.width=((i+1)/n*100)+'%';
+    try{
+      let res=await geocodeOne(loc.q);
+      if(!res){const k=loc.q.replace(/^\S+\s+\d+\w*,\s*/,'');res=await geocodeOne(k);}
+      if(res){loc.lat=res.lat;loc.lon=res.lon;}
+    }catch(e){console.warn('geocode:',loc.naam,e);}
+    await sleep(1100);
+  }
+}
+
+function parseCSVRow(line){
+  const r=[];let c='',q=false;
+  for(const ch of line){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}
+  r.push(c.trim());return r;
+}
+
+function parseStatus(v){
+  if(!v||v==='')return'todo';
+  const s=v.trim().toLowerCase().replace(/[^a-z]/g,'');
+  if(s==='goed'||s==='gecontroleerd'||s==='ok')return'goed';
+  if(s==='fout'||s==='afgekeurd')return'fout';
+  if(s==='hercontrole'||s==='her'||s==='herkeuring')return'her';
+  if(s==='gestopt'||s==='gestorpt'||s==='geenhouder'||s==='vervallen')return'gestopt';
+  return'todo'; // "Nog te doen" en leeg → rood
+}
+
+// Robuuste naam-normalisatie: verwijder alle niet-letters/cijfers
+const normN=n=>(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+
+async function syncSheets(){
+  document.getElementById('syncbadge').textContent='🔄 laden...';
+  let dbg='';
+  try{
+    const resp=await fetch(CSV_URL+'&t='+Date.now(),{cache:'no-cache'});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const txt=await resp.text();
+    if(txt.trim().toLowerCase().startsWith('<!'))throw new Error('Geen CSV — check publicatie');
+    const lines=txt.trim().split(/\r?\n/);
+    const hdr=parseCSVRow(lines[0]);
+    const hdrLow=hdr.map(h=>h.toLowerCase().trim());
+
+    // Detecteer of rij 0 een echte headerrij is of al data bevat
+    // Als de eerste kolom GEEN "naam" bevat maar WEL een bedrijfsnaam, dan is er geen headerrij
+    const heeftHeader = hdrLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
+    const startRij = heeftHeader ? 1 : 0;
+
+    const iStatus = heeftHeader ? hdrLow.findIndex(h=>h.includes('status')) : -1;
+    // Als geen header: status staat in laatste kolom
+    const iStat = iStatus>=0 ? iStatus : hdr.length-1;
+
+    dbg+=`Header gevonden: ${heeftHeader} → data start op rij ${startRij}\n`;
+    dbg+=`Kolommen: ${hdr.join(' | ')}\nStatus=kolom ${iStat}\n\nEERSTE 5:\n`;
+    const sm={};
+    for(let i=startRij;i<lines.length;i++){
+      if(!lines[i].trim())continue;
+      const row=parseCSVRow(lines[i]);
+      const naamRaw=(row[0]||'').trim();
+      const statusRaw=(row[iStat]||'').trim();
+      const naam=normN(naamRaw);
+      if(!naam)continue;
+      sm[naam]={raw:statusRaw,status:parseStatus(statusRaw)};
+      if(i<=startRij+4)dbg+=`  [${i}] "${naamRaw}" → "${statusRaw}" → ${parseStatus(statusRaw)}\n`;
+    }
+    dbg+=`\nSHEET: ${Object.keys(sm).length} rijen\n\nKOPPELING:\n`;
+    let matched=0;
+    LOCS.forEach(loc=>{
+      const k=normN(loc.naam);
+      // 1. Exacte match
+      let hit=sm[k];
+      // 2. Alt-sleutelwoord match (voor lastige namen)
+      if(!hit&&loc.alt){
+        const pk=Object.keys(sm).find(s=>s.includes(loc.alt));
+        if(pk)hit=sm[pk];
+      }
+      // 3. Gedeeltelijke match op 8 tekens
+      if(!hit){
+        const pk=Object.keys(sm).find(s=>s.startsWith(k.slice(0,8))||k.startsWith(s.slice(0,8)));
+        if(pk)hit=sm[pk];
+      }
+      if(hit){
+        loc.status=hit.status;matched++;
+        dbg+=`✓ "${loc.naam.substring(0,25)}" → ${hit.raw} → ${hit.status}\n`;
+      } else {
+        dbg+=`✗ "${loc.naam.substring(0,25)}" → NIET GEVONDEN\n`;
+      }
+    });
+    document.getElementById('debugbox').textContent=dbg;
+    document.getElementById('syncbadge').textContent=
+      `🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${matched}/${LOCS.length} ✓`;
+  }catch(e){
+    dbg+=`\n❌ FOUT: ${e.message}`;
+    document.getElementById('debugbox').textContent=dbg;
+    document.getElementById('syncbadge').textContent='⚠ '+e.message.substring(0,20);
+    console.error('Sync fout:',e);
+  }
+  render();
+}
+
+const st=l=>l.status||'todo';
+const COL={todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681'};
+const LBL={todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT'};
+const BCLS={todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw'};
+
+function mkIcon(status,sz){
+  const c=COL[status]||COL.todo,h=sz+10;
+  let inn='';
+  if(status==='goed') inn=`<path d="M${sz/2-6} ${sz*.56}l5 5 7-7" stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  else if(status==='fout'||status==='her') inn=`<text x="${sz/2}" y="${sz*.63}" text-anchor="middle" font-size="13" font-weight="bold" fill="${c}">!</text>`;
+  else if(status==='gestopt') inn=`<line x1="${sz/2-5}" y1="${sz*.5}" x2="${sz/2+5}" y2="${sz*.6}" stroke="${c}" stroke-width="2.5"/><line x1="${sz/2+5}" y1="${sz*.5}" x2="${sz/2-5}" y2="${sz*.6}" stroke="${c}" stroke-width="2.5"/>`;
+  else inn=`<circle cx="${sz/2}" cy="${sz*.54}" r="4.5" fill="${c}"/>`;
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${h}" viewBox="0 0 ${sz} ${h}">
+      <path d="M${sz/2} 0C${sz*.15} 0 0 ${sz*.36} 0 ${sz*.52}c0 ${sz*.4} ${sz/2} ${sz*.48} ${sz/2} ${sz*.48}S${sz} ${sz*.92} ${sz} ${sz*.52}C${sz} ${sz*.36} ${sz*.85} 0 ${sz/2} 0z" fill="${c}" opacity=".92"/>
+      <circle cx="${sz/2}" cy="${sz*.52}" r="${sz*.28}" fill="white" opacity=".95"/>
+      ${inn}</svg>`,
+    iconSize:[sz,h],iconAnchor:[sz/2,h],popupAnchor:[0,-(h+2)],className:''
+  });
+}
+
+function render(){
+  markers.forEach(m=>map.removeLayer(m));markers=[];
+  const fR=document.getElementById('fR').checked,fG=document.getElementById('fG').checked;
+  const fO=document.getElementById('fO').checked,fW=document.getElementById('fW').checked;
+  LOCS.forEach(loc=>{
+    if(!loc.lat||!loc.lon)return;
+    const s=st(loc);
+    if(s==='todo'&&!fR||s==='goed'&&!fG||(s==='fout'||s==='her')&&!fO||s==='gestopt'&&!fW)return;
+    const sz=loc.id===selId?36:28;
+    const m=L.marker([loc.lat,loc.lon],{icon:mkIcon(s,sz)}).addTo(map);
+    m.on('click',()=>showDp(loc.id));
+    markers.push(m);
+  });
+  document.getElementById('cr').textContent=LOCS.filter(l=>st(l)==='todo').length;
+  document.getElementById('cg').textContent=LOCS.filter(l=>st(l)==='goed').length;
+  document.getElementById('co').textContent=LOCS.filter(l=>st(l)==='fout'||st(l)==='her').length;
+  document.getElementById('cw').textContent=LOCS.filter(l=>st(l)==='gestopt').length;
+  const n=LOCS.filter(l=>st(l)==='goed').length,p=Math.min(100,Math.round(n/TOTAAL*100));
+  document.getElementById('pfill').style.width=p+'%';
+  document.getElementById('plbl').textContent=`${n} / ${TOTAAL} (${p}%)`;
+}
+
+function showDp(id){
+  const l=LOCS.find(x=>x.id===id);if(!l)return;
+  selId=id;render();
+  const s=st(l);
+  document.getElementById('dpc').innerHTML=`
+    <span class="dsrc sv">🐄 ${l.src}</span>
+    <div class="dn">${l.naam}</div>
+    <div class="da">📍 ${l.q.replace(', Groningen','')}</div>
+    ${l.soort?`<div class="ds">${l.soort}</div>`:''}
+    <span class="badge ${BCLS[s]}">${LBL[s]}</span>
+    <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺 Navigeer hierheen</button>`;
+  document.getElementById('dp').style.display='block';
+  document.getElementById('fp').style.display='none';
+}
+function closeDp(){selId=null;document.getElementById('dp').style.display='none';render();}
+function navTo(lat,lon){window.open(`https://maps.google.com/?daddr=${lat},${lon}`,'_blank');}
+
+function carSVG(hdg){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${hdg}deg);transform-origin:center;">
+    <circle cx="17" cy="17" r="16" fill="#0d1117" stroke="#58a6ff" stroke-width="2.5"/>
+    <polygon points="17,5 22,27 17,23 12,27" fill="white"/></svg>`;
+}
+function toggleGPS(){gpsOn?stopGPS():startGPS();}
+function startGPS(){
+  if(!navigator.geolocation){alert('GPS niet beschikbaar.');return;}
+  gpsWatcher=navigator.geolocation.watchPosition(pos=>{
+    const{latitude:la,longitude:lo,heading:hd}=pos.coords;
+    const hdg=(hd!=null&&!isNaN(hd))?hd:myHeading;
+    myLat=la;myLon=lo;myHeading=hdg;
+    const icon=L.divIcon({html:carSVG(hdg),iconSize:[34,34],iconAnchor:[17,17],className:''});
+    if(carMarker){carMarker.setLatLng([la,lo]);carMarker.setIcon(icon);}
+    else{carMarker=L.marker([la,lo],{icon,zIndexOffset:3000}).addTo(map);map.setView([la,lo],14);}
+    checkNearby(la,lo);
+  },e=>console.warn('GPS:',e),{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+  gpsOn=true;
+  document.getElementById('bgps').classList.add('on');
+  document.getElementById('bgps').textContent='🚗 Rijden aan';
+}
+function stopGPS(){
+  if(gpsWatcher)navigator.geolocation.clearWatch(gpsWatcher);
+  if(carMarker){map.removeLayer(carMarker);carMarker=null;}
+  gpsOn=false;
+  document.getElementById('bgps').classList.remove('on');
+  document.getElementById('bgps').textContent='🚗 Rijden';
+}
+
+function haversine(la1,lo1,la2,lo2){
+  const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function checkNearby(la,lo){
+  if(Date.now()-lastAlertTime<20000)return;
+  const todo=LOCS.filter(l=>st(l)==='todo'&&l.lat&&l.lon);
+  let best=null,minD=Infinity;
+  todo.forEach(l=>{const d=haversine(la,lo,l.lat,l.lon);if(d<minD){minD=d;best=l;}});
+  if(best&&minD<=PROX_M){
+    lastAlertTime=Date.now();alertLoc=best;
+    document.getElementById('alert-text').innerHTML=
+      `<strong>${best.naam}</strong><br>${best.q.replace(', Groningen','')}<br><br>📏 <strong>${Math.round(minD)} meter</strong>`;
+    document.getElementById('alert').style.display='block';
+    map.setView([best.lat,best.lon],17,{animate:true});
+  }
+}
+function navToAlert(){if(alertLoc)navTo(alertLoc.lat,alertLoc.lon);}
+function closeAlert(){
+  document.getElementById('alert').style.display='none';
+  if(myLat&&myLon)map.setView([myLat,myLon],15,{animate:true});
+}
+function toggleFp(){
+  const p=document.getElementById('fp'),open=p.style.display==='block';
+  p.style.display=open?'none':'block';
+  document.getElementById('bfp').classList.toggle('on',!open);
+  if(!open)document.getElementById('dp').style.display='none';
+}
+function toggleDebug(){
+  debugVisible=!debugVisible;
+  document.getElementById('debugbox').style.display=debugVisible?'block':'none';
+}
+function zoomAll(){
+  const v=LOCS.filter(l=>l.lat&&l.lon);
+  if(v.length)map.fitBounds(L.latLngBounds(v.map(l=>[l.lat,l.lon])),{padding:[30,30]});
+}
+function zoomTodo(){
+  const v=LOCS.filter(l=>st(l)==='todo'&&l.lat&&l.lon);
+  if(v.length)map.fitBounds(L.latLngBounds(v.map(l=>[l.lat,l.lon])),{padding:[40,40]});
+}
+map.on('click',()=>closeDp());
+
+async function init(){
+  document.getElementById('loadmsg').textContent='Statussen ophalen uit Google Sheets...';
+  await syncSheets();
+  document.getElementById('loadmsg').textContent='Adressen opzoeken...';
+  await geocodeAll();
+  document.getElementById('loading').style.display='none';
+  render();zoomAll();
+  setInterval(async()=>{await syncSheets();},2*60*1000);
+}
+init();
+</script>
+</body>
+</html>
