@@ -734,6 +734,11 @@ async function refreshAll(){
     const raw=await loadFromSheet();
     document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${raw.length} bedrijven`;
     LOCS=await geocodeAll(raw);
+  // Zorg dat herDatum altijd van raw data komt (niet overschreven door cache)
+  LOCS.forEach(loc=>{
+    const r=raw.find(r=>r.naam===loc.naam);
+    if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;}
+  });
     document.getElementById('loading').style.display='none';
     render();zoomAll();
   }catch(e){
