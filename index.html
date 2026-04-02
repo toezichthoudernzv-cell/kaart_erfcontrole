@@ -681,7 +681,8 @@ function render(){
   document.getElementById('cg').textContent=bedrijven.filter(l=>st(l)==='goed').length;
   document.getElementById('co').textContent=bedrijven.filter(l=>st(l)==='fout'||st(l)==='her').length;
   document.getElementById('cw').textContent=bedrijven.filter(l=>st(l)==='gestopt').length;
-  const n=bedrijven.filter(l=>st(l)==='goed').length;
+  // Afgehandeld = Goed + Gestopt + Hercontrole + Fout (alles behalve 'todo')
+  const n=bedrijven.filter(l=>st(l)!=='todo').length;
   const p=totaal>0?Math.min(100,Math.round(n/totaal*100)):0;
   document.getElementById('pfill').style.width=p+'%';
   document.getElementById('plbl').textContent=`${n} / ${totaal} (${p}%)`;
