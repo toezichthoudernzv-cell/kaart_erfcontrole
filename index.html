@@ -563,13 +563,13 @@ async function loadFromSheet() {
   let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7;
   if(heeftHeader){
     iNaam    =firstLow.findIndex(h=>h.includes('naam'))??0;
-    iDatum   =firstLow.findIndex(h=>h.includes('datum')||h.includes('date'))??1;
+    iDatum   =firstLow.findIndex(h=>(h.includes('datum')||h.includes('date'))&&!h.includes('her'))??1;
     iStraat  =firstLow.findIndex(h=>h.includes('straat')||h.includes('adres'))??2;
     iNr      =firstLow.findIndex(h=>h==='nr'||h.includes('huisnr')||h.includes('nummer'))??3;
     iPostcode=firstLow.findIndex(h=>h.includes('postcode'))??4;
     iPlaats  =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
     iStatus  =firstLow.findIndex(h=>h.includes('status'))??6;
-    iHerDatum=firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('her datum')||h.includes('herdatum'))??7;
+    iHerDatum=firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
   }
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
@@ -583,7 +583,7 @@ async function loadFromSheet() {
     const plaats  =(row[iPlaats]  ||'').trim();
     const status  =parseStatus(row[iStatus]||'');
     const datum   =parseDatum(row[iDatum]||'');
-    const herDatum =parseDatum(row[iHerDatum>=0?iHerDatum:7]||'');
+    const herDatum =parseDatum(iHerDatum>=0&&row[iHerDatum]?row[iHerDatum]:'');
     const adresQ  =`${straat} ${nr}, ${postcode} ${plaats}, Nederland`.trim();
     locs.push({id:i,naam,straat,nr,postcode,plaats,status,datum,herDatum,adresQ,lat:null,lon:null});
   }
@@ -695,7 +695,7 @@ function showDp(id){
   selId=id;render();
   const s=st(l);
   const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
-  const herDatumTxt=(l.herDatum&&(st(l)==='her'||st(l)==='fout'))?`<div class="dd" style="color:#ff9500;">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
+  const herDatumTxt=l.herDatum?`<div class="dd" style="color:#ff9500;">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
   document.getElementById('dpc').innerHTML=`
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
