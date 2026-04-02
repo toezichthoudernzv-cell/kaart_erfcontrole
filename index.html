@@ -104,6 +104,8 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 .bgg{background:#1a3d1f;color:#3fb950;border:1px solid #3fb950;}
 .bo{background:#3d2a0a;color:#ff9500;border:1px solid #ff9500;}
 .bw{background:#21262d;color:#8b949e;border:1px solid #484f58;}
+.bth{background:#2d1f4d;color:#a78bfa;border:1px solid #a78bfa;}
+.bka{background:#0c2a3d;color:#38bdf8;border:1px solid #38bdf8;}
 .dnav{display:block;width:100%;margin-top:4px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
 .dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
 .leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
@@ -185,6 +187,8 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
   <div class="fr"><input type="checkbox" id="fG" checked onchange="render()"><label for="fG">🟢 Gecontroleerd (goed)</label></div>
   <div class="fr"><input type="checkbox" id="fO" checked onchange="render()"><label for="fO">🟠 Hercontrole / fout</label></div>
   <div class="fr"><input type="checkbox" id="fW" checked onchange="render()"><label for="fW">⚪ Gestopt</label></div>
+  <div class="fr"><input type="checkbox" id="fTH" checked onchange="render()"><label for="fTH">🏠 Thuis</label></div>
+  <div class="fr"><input type="checkbox" id="fKA" checked onchange="render()"><label for="fKA">🏢 Kantoor</label></div>
 </div>
 <div id="dp"><button class="dpc" onclick="closeDp()">✕</button><div id="dpc"></div></div>
 
@@ -329,9 +333,27 @@ function sluitBezoek() {
 //  GPS
 // ══════════════════════════════════════════════
 function carSVG(hdg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${hdg}deg);transform-origin:center;">
-    <circle cx="17" cy="17" r="16" fill="#0d1117" stroke="#58a6ff" stroke-width="2.5"/>
-    <polygon points="17,5 22,27 17,23 12,27" fill="white"/></svg>`;
+  // Kia — bovenaanzicht, wit, met blauwe ring
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"
+    style="transform:rotate(${hdg}deg);transform-origin:center;filter:drop-shadow(0 2px 4px rgba(88,166,255,.5));">
+    <!-- Buitenste ring -->
+    <circle cx="19" cy="19" r="18" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+    <!-- Carrosserie -->
+    <rect x="12" y="7" width="14" height="24" rx="5" ry="5" fill="white"/>
+    <!-- Voorruit -->
+    <rect x="13.5" y="9" width="11" height="6" rx="2" fill="#58a6ff" opacity=".7"/>
+    <!-- Achterruit -->
+    <rect x="13.5" y="23" width="11" height="5" rx="2" fill="#58a6ff" opacity=".5"/>
+    <!-- Motorkap lijn -->
+    <line x1="13" y1="15.5" x2="25" y2="15.5" stroke="#aaa" stroke-width=".8"/>
+    <!-- KIA logo tekst -->
+    <text x="19" y="21.5" text-anchor="middle" font-family="Arial" font-size="4.5" font-weight="bold" fill="#0d1117" letter-spacing=".5">KIA</text>
+    <!-- Wielen -->
+    <rect x="9"  y="9"  width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="25.5" y="9"  width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="9"  y="23.5" width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="25.5" y="23.5" width="3.5" height="5.5" rx="1.2" fill="#333"/>
+  </svg>`;
 }
 
 async function requestWakeLock() {
@@ -370,7 +392,7 @@ async function startGPS() {
     }
     prevLat=la; prevLon=lo; myLat=la; myLon=lo; myHeading=hdg;
 
-    const icon = L.divIcon({html:carSVG(hdg),iconSize:[34,34],iconAnchor:[17,17],className:''});
+    const icon = L.divIcon({html:carSVG(hdg),iconSize:[38,38],iconAnchor:[19,19],className:''});
     if (carMarker) { carMarker.setLatLng([la,lo]); carMarker.setIcon(icon); }
     else { carMarker=L.marker([la,lo],{icon,zIndexOffset:3000,interactive:false}).addTo(map); map.setView([la,lo],14); }
 
@@ -519,6 +541,8 @@ function parseStatus(v) {
   if(s==='fout'||s==='afgekeurd')return'fout';
   if(s==='hercontrole'||s==='her'||s==='herkeuring')return'her';
   if(s==='gestopt'||s==='gestorpt'||s==='geenhouder'||s==='vervallen')return'gestopt';
+  if(s==='thuis')return'thuis';
+  if(s==='kantoor')return'kantoor';
   return'todo';
 }
 function parseDatum(v) {
@@ -601,12 +625,22 @@ async function geocodeAll(locs){
 //  STATUS + MARKERS
 // ══════════════════════════════════════════════
 const st   = l=>l.status||'todo';
-const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681'};
-const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT'};
-const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw'};
+const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8'};
+const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR'};
+const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka'};
 
 function mkIcon(status,selected){
   const c=COL[status]||COL.todo,sz=selected?36:28,h=sz+10;
+
+  // Thuis = huis-icoontje, Kantoor = gebouw-icoontje
+  if(status==='thuis'||status==='kantoor'){
+    const emoji=status==='thuis'?'🏠':'🏢';
+    return L.divIcon({
+      html:`<div style="width:${sz}px;height:${sz}px;background:${c};border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:${sz*.5}px;box-shadow:0 2px 8px rgba(0,0,0,.4);">${emoji}</div>`,
+      iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-(sz/2+4)],className:''
+    });
+  }
+
   let inn='';
   if(status==='goed')inn=`<path d="M${sz/2-6} ${sz*.56}l5 5 7-7" stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
   else if(status==='fout'||status==='her')inn=`<text x="${sz/2}" y="${sz*.63}" text-anchor="middle" font-size="13" font-weight="bold" fill="${c}">!</text>`;
@@ -625,21 +659,29 @@ function render(){
   markers.forEach(m=>map.removeLayer(m));markers=[];
   const fR=document.getElementById('fR').checked,fG=document.getElementById('fG').checked;
   const fO=document.getElementById('fO').checked,fW=document.getElementById('fW').checked;
+  const fTH=document.getElementById('fTH').checked,fKA=document.getElementById('fKA').checked;
   LOCS.forEach(loc=>{
     if(!loc.lat||!loc.lon)return;
     const s=st(loc);
-    if(s==='todo'&&!fR||s==='goed'&&!fG||(s==='fout'||s==='her')&&!fO||s==='gestopt'&&!fW)return;
+    if(s==='todo'&&!fR)return;
+    if(s==='goed'&&!fG)return;
+    if((s==='fout'||s==='her')&&!fO)return;
+    if(s==='gestopt'&&!fW)return;
+    if(s==='thuis'&&!fTH)return;
+    if(s==='kantoor'&&!fKA)return;
     const m=L.marker([loc.lat,loc.lon],{icon:mkIcon(s,loc.id===selId),interactive:true}).addTo(map);
     m.on('click',(e)=>{L.DomEvent.stopPropagation(e);showDp(loc.id);});
     m.on('touchend',(e)=>{L.DomEvent.stopPropagation(e);showDp(loc.id);});
     markers.push(m);
   });
-  const totaal=LOCS.length;
-  document.getElementById('cr').textContent=LOCS.filter(l=>st(l)==='todo').length;
-  document.getElementById('cg').textContent=LOCS.filter(l=>st(l)==='goed').length;
-  document.getElementById('co').textContent=LOCS.filter(l=>st(l)==='fout'||st(l)==='her').length;
-  document.getElementById('cw').textContent=LOCS.filter(l=>st(l)==='gestopt').length;
-  const n=LOCS.filter(l=>st(l)==='goed').length;
+  // Thuis en Kantoor tellen NIET mee in voortgang
+  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor');
+  const totaal=bedrijven.length;
+  document.getElementById('cr').textContent=bedrijven.filter(l=>st(l)==='todo').length;
+  document.getElementById('cg').textContent=bedrijven.filter(l=>st(l)==='goed').length;
+  document.getElementById('co').textContent=bedrijven.filter(l=>st(l)==='fout'||st(l)==='her').length;
+  document.getElementById('cw').textContent=bedrijven.filter(l=>st(l)==='gestopt').length;
+  const n=bedrijven.filter(l=>st(l)==='goed').length;
   const p=totaal>0?Math.min(100,Math.round(n/totaal*100)):0;
   document.getElementById('pfill').style.width=p+'%';
   document.getElementById('plbl').textContent=`${n} / ${totaal} (${p}%)`;
