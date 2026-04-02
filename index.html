@@ -560,7 +560,7 @@ async function loadFromSheet() {
   const firstLow=first.map(h=>h.toLowerCase().trim());
   const heeftHeader=firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
   const startRij=heeftHeader?1:0;
-  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7;
   if(heeftHeader){
     iNaam    =firstLow.findIndex(h=>h.includes('naam'))??0;
     iDatum   =firstLow.findIndex(h=>h.includes('datum')||h.includes('date'))??1;
@@ -569,6 +569,7 @@ async function loadFromSheet() {
     iPostcode=firstLow.findIndex(h=>h.includes('postcode'))??4;
     iPlaats  =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
     iStatus  =firstLow.findIndex(h=>h.includes('status'))??6;
+    iHerDatum=firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('her datum')||h.includes('herdatum'))??7;
   }
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
@@ -582,8 +583,9 @@ async function loadFromSheet() {
     const plaats  =(row[iPlaats]  ||'').trim();
     const status  =parseStatus(row[iStatus]||'');
     const datum   =parseDatum(row[iDatum]||'');
+    const herDatum =parseDatum(row[iHerDatum>=0?iHerDatum:7]||'');
     const adresQ  =`${straat} ${nr}, ${postcode} ${plaats}, Nederland`.trim();
-    locs.push({id:i,naam,straat,nr,postcode,plaats,status,datum,adresQ,lat:null,lon:null});
+    locs.push({id:i,naam,straat,nr,postcode,plaats,status,datum,herDatum,adresQ,lat:null,lon:null});
   }
   return locs;
 }
@@ -693,10 +695,12 @@ function showDp(id){
   selId=id;render();
   const s=st(l);
   const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
+  const herDatumTxt=(l.herDatum&&(st(l)==='her'||st(l)==='fout'))?`<div class="dd" style="color:#ff9500;">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
   document.getElementById('dpc').innerHTML=`
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
     ${datumTxt}
+    ${herDatumTxt}
     <span class="badge ${BCLS[s]}">${LBL[s]}</span>
     <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
   document.getElementById('dp').style.display='block';
@@ -739,7 +743,7 @@ async function refreshAll(){
 async function syncStatusOnly(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;}});
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;}});
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear(); herAlertGetoond.clear(); // reset alerts zodat nieuwe locaties weer melden
