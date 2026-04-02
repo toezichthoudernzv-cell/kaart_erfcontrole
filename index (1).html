@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Erfcontrole Westerkwartier</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans',sans-serif;background:#0d1117;color:#e6edf3;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#header{background:#161b22;border-bottom:2px solid #21262d;padding:8px 14px 7px;flex-shrink:0;}
+#htop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
+h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#58a6ff;letter-spacing:.06em;}
+#stats{display:flex;gap:8px;}
+.stat{display:flex;align-items:center;gap:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.2);}
+.dr{background:#f85149;}.dg{background:#3fb950;}.do{background:#ff9500;}.dw{background:#6e7681;}
+#prow{display:flex;align-items:center;gap:8px;}
+#pbg{flex:1;height:10px;background:#21262d;border-radius:5px;overflow:hidden;border:1px solid #30363d;}
+#pfill{height:100%;width:0%;background:linear-gradient(90deg,#238636,#3fb950);border-radius:5px;transition:width .8s ease;}
+#plbl{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e6edf3;font-weight:600;white-space:nowrap;min-width:95px;text-align:right;}
+
+/* RITBALK */
+#ritbar{background:#0d1117;border-bottom:1px solid #21262d;padding:5px 14px;display:none;flex-shrink:0;}
+#ritbar-inner{display:flex;gap:16px;flex-wrap:wrap;}
+.rit-stat{display:flex;flex-direction:column;align-items:center;}
+.rit-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#58a6ff;}
+.rit-lbl{font-size:9px;color:#6e7681;font-family:'IBM Plex Mono',monospace;margin-top:1px;}
+#vandaag-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#3fb950;background:#1a3d1f;border:1px solid #3fb950;border-radius:12px;padding:2px 8px;align-self:center;white-space:nowrap;}
+
+/* LOADING */
+#loading{position:absolute;inset:0;background:#0d1117;z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#loading h2{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#58a6ff;}
+#loadmsg{font-size:11px;color:#8b949e;font-family:'IBM Plex Mono',monospace;max-width:300px;text-align:center;line-height:1.6;}
+#loadbar-bg{width:260px;height:8px;background:#21262d;border-radius:4px;overflow:hidden;}
+#loadbar-fill{height:100%;width:0%;background:#58a6ff;border-radius:4px;transition:width .3s;}
+.spinner{width:34px;height:34px;border:3px solid #21262d;border-top-color:#58a6ff;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+#map{flex:1;}
+
+/* BOTTOM BAR */
+#bot{background:#161b22;border-top:1px solid #21262d;padding:6px 10px;display:flex;gap:5px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.btn{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:7px 10px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#e6edf3;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;user-select:none;}
+.btn:active,.btn.on{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
+
+/* ALERTS */
+#alert{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1117;border:2px solid #f85149;border-radius:14px;padding:18px 20px;z-index:2500;display:none;text-align:center;min-width:260px;max-width:310px;box-shadow:0 8px 40px rgba(248,81,73,.4);}
+#alert h3{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#f85149;margin-bottom:8px;}
+#alert p{font-size:12px;color:#e6edf3;line-height:1.6;}
+#alert-nav{display:block;width:100%;margin-top:10px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #58a6ff;color:#58a6ff;border-radius:5px;cursor:pointer;}
+#alert-close{display:block;width:100%;margin-top:5px;padding:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;background:transparent;border:1px solid #30363d;color:#8b949e;border-radius:5px;cursor:pointer;}
+
+/* HERCONTROLE ALERT */
+#her-alert{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:#3d2a0a;border:2px solid #ff9500;border-radius:10px;padding:10px 16px;z-index:2400;display:none;text-align:center;min-width:240px;box-shadow:0 4px 20px rgba(255,149,0,.3);}
+#her-alert p{font-size:11px;font-family:'IBM Plex Mono',monospace;color:#ff9500;}
+#her-alert button{margin-top:6px;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:3px 10px;border:1px solid #ff9500;background:transparent;color:#ff9500;border-radius:4px;cursor:pointer;}
+
+/* BEZOEK POPUP (aankomst automatisch) */
+#bezoek-popup{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:#161b22;border:1px solid #3fb950;border-radius:10px;padding:12px 16px;z-index:2000;display:none;min-width:250px;text-align:center;box-shadow:0 4px 20px rgba(63,185,80,.3);}
+#bezoek-popup h4{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3fb950;margin-bottom:6px;}
+#bezoek-popup p{font-size:11px;color:#e6edf3;line-height:1.5;}
+#bezoek-timer{font-family:'IBM Plex Mono',monospace;font-size:18px;color:#58a6ff;margin:8px 0;}
+#bezoek-popup button{margin-top:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 12px;border:1px solid #6e7681;background:transparent;color:#8b949e;border-radius:4px;cursor:pointer;}
+
+/* DAGRAPPORT */
+#rapport{position:absolute;inset:0;background:#0d1117;z-index:2800;display:none;flex-direction:column;}
+#rapport-header{background:#161b22;border-bottom:1px solid #21262d;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#rapport-header h2{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#58a6ff;}
+#rapport-close{background:none;border:none;color:#6e7681;font-size:20px;cursor:pointer;padding:4px 8px;}
+#rapport-body{flex:1;overflow-y:auto;padding:14px;}
+.rapport-item{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 14px;margin-bottom:10px;}
+.rapport-naam{font-weight:600;font-size:12px;margin-bottom:4px;}
+.rapport-meta{font-size:10px;font-family:'IBM Plex Mono',monospace;color:#8b949e;line-height:1.6;}
+.rapport-status{display:inline-block;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;border-radius:3px;font-weight:600;margin-top:4px;}
+#rapport-summary{background:#161b22;border-top:2px solid #21262d;padding:12px 16px;flex-shrink:0;}
+#rapport-summary-inner{display:flex;gap:16px;flex-wrap:wrap;}
+.rs-stat{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.rs-val{color:#58a6ff;font-weight:600;}
+
+/* SYNCBADGE */
+#syncbadge{position:absolute;top:82px;right:10px;background:#161b22dd;border:1px solid #30363d;border-radius:20px;padding:3px 10px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:#8b949e;z-index:500;}
+#wakelock-badge{position:absolute;top:82px;left:10px;background:#161b22dd;border:1px solid #3fb950;border-radius:20px;padding:3px 10px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:#3fb950;z-index:500;display:none;}
+
+/* FILTER + DETAIL PANELS */
+#fp{position:absolute;bottom:54px;left:10px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;z-index:1000;display:none;min-width:215px;box-shadow:0 8px 32px rgba(0,0,0,.8);}
+#fp h3{font-size:11px;color:#58a6ff;font-family:'IBM Plex Mono',monospace;margin-bottom:12px;}
+.fr{display:flex;align-items:center;gap:9px;margin-bottom:10px;cursor:pointer;}
+.fr:last-child{margin-bottom:0;}
+.fr label{font-size:12px;cursor:pointer;color:#ccc;}
+.fr input{cursor:pointer;accent-color:#58a6ff;width:16px;height:16px;}
+#dp{position:absolute;bottom:54px;right:10px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;z-index:1000;display:none;width:250px;box-shadow:0 8px 32px rgba(0,0,0,.8);}
+.dpc{position:absolute;top:8px;right:10px;background:none;border:none;color:#6e7681;cursor:pointer;font-size:20px;padding:2px 6px;}
+.dn{font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3;}
+.da{font-size:11px;color:#8b949e;font-family:'IBM Plex Mono',monospace;margin-bottom:4px;line-height:1.5;}
+.dd{font-size:10px;color:#6e7681;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;}
+.ds{font-size:11px;color:#adbac7;margin-bottom:8px;line-height:1.4;}
+.badge{display:inline-block;font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 10px;border-radius:4px;font-weight:600;margin-bottom:8px;}
+.br{background:#3d1a1a;color:#f85149;border:1px solid #f85149;}
+.bgg{background:#1a3d1f;color:#3fb950;border:1px solid #3fb950;}
+.bo{background:#3d2a0a;color:#ff9500;border:1px solid #ff9500;}
+.bw{background:#21262d;color:#8b949e;border:1px solid #484f58;}
+.bth{background:#2d1f4d;color:#a78bfa;border:1px solid #a78bfa;}
+.bka{background:#0c2a3d;color:#38bdf8;border:1px solid #38bdf8;}
+.dnav{display:block;width:100%;margin-top:4px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
+.dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
+.leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><h2>KAART LADEN</h2><div id="loadmsg">Gegevens ophalen...</div><div id="loadbar-bg"><div id="loadbar-fill"></div></div></div>
+
+<!-- Nabijheids-alert (rode pin) -->
+<div id="alert">
+  <h3>🚨 CONTROLE IN DE BUURT!</h3>
+  <p id="alert-text"></p>
+  <button id="alert-nav" onclick="navToAlert()">🗺 Navigeer hierheen</button>
+  <button id="alert-close" onclick="closeAlert()">Doorgaan</button>
+</div>
+
+<!-- Hercontrole-alert (oranje pin) -->
+<div id="her-alert">
+  <p id="her-alert-text">⚠️ Hercontrole bedrijf in de buurt!</p>
+  <button onclick="document.getElementById('her-alert').style.display='none'">Sluiten</button>
+</div>
+
+<!-- Aankomst bezoek popup -->
+<div id="bezoek-popup">
+  <h4>📍 AANKOMST GEREGISTREERD</h4>
+  <p id="bezoek-naam"></p>
+  <div id="bezoek-timer">00:00</div>
+  <p id="bezoek-tijd" style="font-size:10px;color:#6e7681;font-family:'IBM Plex Mono',monospace;"></p>
+  <button onclick="sluitBezoek()">Verlaten</button>
+</div>
+
+<div id="header">
+  <div id="htop">
+    <h1>⚡ ERFCONTROLE — WESTERKWARTIER</h1>
+    <div id="stats">
+      <div class="stat"><div class="dot dr"></div><span id="cr">–</span></div>
+      <div class="stat"><div class="dot dg"></div><span id="cg">–</span></div>
+      <div class="stat"><div class="dot do"></div><span id="co">–</span></div>
+      <div class="stat"><div class="dot dw"></div><span id="cw">–</span></div>
+    </div>
+  </div>
+  <div id="prow"><div id="pbg"><div id="pfill"></div></div><div id="plbl">0 / 0 (0%)</div></div>
+</div>
+
+<!-- Ritbalk — zichtbaar tijdens rijden -->
+<div id="ritbar">
+  <div id="ritbar-inner">
+    <div class="rit-stat"><div class="rit-val" id="rit-km">0.0</div><div class="rit-lbl">KM gereden</div></div>
+    <div class="rit-stat"><div class="rit-val" id="rit-snelheid">0</div><div class="rit-lbl">km/u gemiddeld</div></div>
+    <div class="rit-stat"><div class="rit-val" id="rit-tijd">00:00</div><div class="rit-lbl">Rijtijd</div></div>
+    <div id="vandaag-badge">✓ 0 vandaag</div>
+  </div>
+</div>
+
+<div id="map"></div>
+<div id="syncbadge">⏱ laden...</div>
+<div id="wakelock-badge">☀️ Scherm aan</div>
+
+<!-- Dagrapport overlay -->
+<div id="rapport">
+  <div id="rapport-header">
+    <h2>📋 DAGRAPPORT — <span id="rapport-datum"></span></h2>
+    <button id="rapport-close" onclick="sluitRapport()">✕</button>
+  </div>
+  <div id="rapport-body"></div>
+  <div id="rapport-summary">
+    <div id="rapport-summary-inner">
+      <div class="rs-stat">Bedrijven: <span class="rs-val" id="rs-n">0</span></div>
+      <div class="rs-stat">Totale tijd: <span class="rs-val" id="rs-tijd">–</span></div>
+      <div class="rs-stat">Gereden km: <span class="rs-val" id="rs-km">–</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="fp">
+  <h3>🔍 FILTER</h3>
+  <div class="fr"><input type="checkbox" id="fR" checked onchange="render()"><label for="fR">🔴 Nog te controleren</label></div>
+  <div class="fr"><input type="checkbox" id="fG" checked onchange="render()"><label for="fG">🟢 Gecontroleerd (goed)</label></div>
+  <div class="fr"><input type="checkbox" id="fO" checked onchange="render()"><label for="fO">🟠 Hercontrole / fout</label></div>
+  <div class="fr"><input type="checkbox" id="fW" checked onchange="render()"><label for="fW">⚪ Gestopt</label></div>
+  <div class="fr"><input type="checkbox" id="fTH" checked onchange="render()"><label for="fTH">🏠 Thuis</label></div>
+  <div class="fr"><input type="checkbox" id="fKA" checked onchange="render()"><label for="fKA">🏢 Kantoor</label></div>
+</div>
+<div id="dp"><button class="dpc" onclick="closeDp()">✕</button><div id="dpc"></div></div>
+
+<div id="bot">
+  <button class="btn" id="bgps" onclick="toggleGPS()">🚗 Rijden</button>
+  <button class="btn" id="bfp" onclick="toggleFp()">🔍 Filter</button>
+  <button class="btn" onclick="zoomAll()">🗺 Overzicht</button>
+  <button class="btn" onclick="zoomTodo()">🔴 Te doen</button>
+  <button class="btn" onclick="toonRapport()">📋 Rapport</button>
+  <button class="btn" onclick="refreshAll()">🔄 Ververs</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════
+const CSV_URL       = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq3URzL5qqMcbj0YLmhXxbT6tlMSW_NBIbEvERhtZMi_Fuxd6JBohNO0lqIuZPgr65AiViZ_qqxEod/pub?output=csv';
+const GEO_CACHE_KEY = 'erfcontrole_geocache_v3';
+const LOG_KEY       = 'erfcontrole_daglog_v1';
+const PROX_ALERT    = 200;   // meter voor nabijheidsmelding
+const PROX_BEZOEK   = 80;    // meter voor bezoekregistratie
+const STILSTAND_MS  = 15000; // 15 seconden stil = bezoek
+
+// ══════════════════════════════════════════════
+//  KAART
+// ══════════════════════════════════════════════
+const map = L.map('map', {zoomControl:true, tap:false}).setView([53.08, 6.37], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19}).addTo(map);
+
+let LOCS = [], markers = [], selId = null;
+let carMarker = null, gpsOn = false, gpsWatcher = null;
+let myLat = null, myLon = null, myHeading = 0, mySpeed = 0;
+let wakeLock = null;
+
+// ══════════════════════════════════════════════
+//  RIT STATISTIEKEN
+// ══════════════════════════════════════════════
+let ritStart     = null;
+let ritKm        = 0;
+let ritSpeeds    = [];
+let ritTimer     = null;
+let prevLat      = null, prevLon = null;
+
+function startRit() {
+  ritStart  = Date.now();
+  ritKm     = 0;
+  ritSpeeds = [];
+  prevLat   = null; prevLon = null;
+  document.getElementById('ritbar').style.display = 'block';
+  ritTimer = setInterval(updateRitBar, 1000);
+}
+
+function stopRit() {
+  if (ritTimer) clearInterval(ritTimer);
+  document.getElementById('ritbar').style.display = 'none';
+}
+
+function updateRitBar() {
+  if (!ritStart) return;
+  const elapsed = Math.floor((Date.now() - ritStart) / 1000);
+  const min = Math.floor(elapsed / 60).toString().padStart(2,'0');
+  const sec = (elapsed % 60).toString().padStart(2,'0');
+  document.getElementById('rit-tijd').textContent = `${min}:${sec}`;
+  document.getElementById('rit-km').textContent   = ritKm.toFixed(1);
+  const avgSpeed = ritSpeeds.length ? Math.round(ritSpeeds.reduce((a,b)=>a+b,0)/ritSpeeds.length*3.6) : 0;
+  document.getElementById('rit-snelheid').textContent = avgSpeed;
+  const vandaag = getDagLog().filter(v => isVandaag(v.aankomst)).length;
+  document.getElementById('vandaag-badge').textContent = `✓ ${vandaag} vandaag`;
+}
+
+function berekenAfstand(la1,lo1,la2,lo2) {
+  const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ══════════════════════════════════════════════
+//  BEZOEK REGISTRATIE
+// ══════════════════════════════════════════════
+let huidigBezoek   = null; // {loc, aankomst, timerInterval}
+let stilstandTimer = null;
+let stilstandLoc   = null;
+let herAlertGetoond = new Set();
+let alertGetoond    = new Set();
+
+function getDagLog() {
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveDagLog(log) {
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(log)); } catch(e) {}
+}
+function isVandaag(ts) {
+  const d = new Date(ts), n = new Date();
+  return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
+}
+
+function startBezoek(loc) {
+  if (huidigBezoek && huidigBezoek.loc.id === loc.id) return; // al bezig
+  if (huidigBezoek) sluitBezoek(); // sluit vorige
+  const aankomst = Date.now();
+  huidigBezoek = {loc, aankomst, timerInterval: null};
+
+  document.getElementById('bezoek-naam').textContent = loc.naam;
+  document.getElementById('bezoek-tijd').textContent = `Aankomst: ${new Date(aankomst).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('bezoek-popup').style.display = 'block';
+
+  huidigBezoek.timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - aankomst) / 1000);
+    const min = Math.floor(elapsed/60).toString().padStart(2,'0');
+    const sec = (elapsed%60).toString().padStart(2,'0');
+    document.getElementById('bezoek-timer').textContent = `${min}:${sec}`;
+  }, 1000);
+}
+
+function sluitBezoek() {
+  if (!huidigBezoek) return;
+  const vertrek   = Date.now();
+  const duurSec   = Math.floor((vertrek - huidigBezoek.aankomst) / 1000);
+  if (huidigBezoek.timerInterval) clearInterval(huidigBezoek.timerInterval);
+  document.getElementById('bezoek-popup').style.display = 'none';
+
+  // Sla op in daglog
+  if (duurSec >= 30) { // alleen als je er minstens 30 seconden was
+    const log = getDagLog();
+    log.push({
+      id:       huidigBezoek.loc.id,
+      naam:     huidigBezoek.loc.naam,
+      adres:    `${huidigBezoek.loc.straat} ${huidigBezoek.loc.nr}, ${huidigBezoek.loc.plaats}`,
+      status:   huidigBezoek.loc.status,
+      aankomst: huidigBezoek.aankomst,
+      vertrek,
+      duurSec
+    });
+    saveDagLog(log);
+  }
+  huidigBezoek = null;
+  updateRitBar();
+}
+
+// ══════════════════════════════════════════════
+//  GPS
+// ══════════════════════════════════════════════
+function carSVG(hdg) {
+  // Kia — bovenaanzicht, wit, met blauwe ring
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"
+    style="transform:rotate(${hdg}deg);transform-origin:center;filter:drop-shadow(0 2px 4px rgba(88,166,255,.5));">
+    <!-- Buitenste ring -->
+    <circle cx="19" cy="19" r="18" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+    <!-- Carrosserie -->
+    <rect x="12" y="7" width="14" height="24" rx="5" ry="5" fill="white"/>
+    <!-- Voorruit -->
+    <rect x="13.5" y="9" width="11" height="6" rx="2" fill="#58a6ff" opacity=".7"/>
+    <!-- Achterruit -->
+    <rect x="13.5" y="23" width="11" height="5" rx="2" fill="#58a6ff" opacity=".5"/>
+    <!-- Motorkap lijn -->
+    <line x1="13" y1="15.5" x2="25" y2="15.5" stroke="#aaa" stroke-width=".8"/>
+    <!-- KIA logo tekst -->
+    <text x="19" y="21.5" text-anchor="middle" font-family="Arial" font-size="4.5" font-weight="bold" fill="#0d1117" letter-spacing=".5">KIA</text>
+    <!-- Wielen -->
+    <rect x="9"  y="9"  width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="25.5" y="9"  width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="9"  y="23.5" width="3.5" height="5.5" rx="1.2" fill="#333"/>
+    <rect x="25.5" y="23.5" width="3.5" height="5.5" rx="1.2" fill="#333"/>
+  </svg>`;
+}
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      document.getElementById('wakelock-badge').style.display = 'block';
+      wakeLock.addEventListener('release', () => { document.getElementById('wakelock-badge').style.display='none'; });
+    }
+  } catch(e) {}
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock=null; }
+  document.getElementById('wakelock-badge').style.display = 'none';
+}
+document.addEventListener('visibilitychange', async () => {
+  if (wakeLock!==null && document.visibilityState==='visible' && gpsOn) await requestWakeLock();
+});
+
+function toggleGPS() { gpsOn ? stopGPS() : startGPS(); }
+
+async function startGPS() {
+  if (!navigator.geolocation) { alert('GPS niet beschikbaar.'); return; }
+  await requestWakeLock();
+  startRit();
+  gpsWatcher = navigator.geolocation.watchPosition(pos => {
+    const {latitude:la, longitude:lo, heading:hd, speed:sp} = pos.coords;
+    const hdg = (hd!=null&&!isNaN(hd)) ? hd : myHeading;
+    mySpeed = sp || 0;
+    if (mySpeed > 0.5) ritSpeeds.push(mySpeed);
+
+    // Bereken gereden afstand
+    if (prevLat!==null) {
+      const d = berekenAfstand(prevLat,prevLon,la,lo);
+      if (d < 500) ritKm += d/1000; // max 500m per update (filter GPS-sprongen)
+    }
+    prevLat=la; prevLon=lo; myLat=la; myLon=lo; myHeading=hdg;
+
+    const icon = L.divIcon({html:carSVG(hdg),iconSize:[38,38],iconAnchor:[19,19],className:''});
+    if (carMarker) { carMarker.setLatLng([la,lo]); carMarker.setIcon(icon); }
+    else { carMarker=L.marker([la,lo],{icon,zIndexOffset:3000,interactive:false}).addTo(map); map.setView([la,lo],14); }
+
+    checkNearby(la,lo);
+    checkBezoek(la,lo);
+  }, e=>console.warn('GPS:',e), {enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+
+  gpsOn=true;
+  document.getElementById('bgps').classList.add('on');
+  document.getElementById('bgps').textContent='🚗 Rijden aan';
+}
+
+function stopGPS() {
+  if (gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
+  if (carMarker) { map.removeLayer(carMarker); carMarker=null; }
+  sluitBezoek();
+  stopRit();
+  releaseWakeLock();
+  gpsOn=false;
+  document.getElementById('bgps').classList.remove('on');
+  document.getElementById('bgps').textContent='🚗 Rijden';
+}
+
+// ══════════════════════════════════════════════
+//  NABIJHEIDSDETECTIE
+// ══════════════════════════════════════════════
+let lastAlertTime=0, alertLoc=null, lastHerAlertTime=0;
+
+function checkNearby(la,lo) {
+  // Rode pins (te controleren) — grote alert
+  if (Date.now()-lastAlertTime > 25000) {
+    const todo = LOCS.filter(l=>st(l)==='todo'&&l.lat&&l.lon);
+    let best=null, minD=Infinity;
+    todo.forEach(l=>{const d=berekenAfstand(la,lo,l.lat,l.lon);if(d<minD){minD=d;best=l;}});
+    if (best && minD<=PROX_ALERT && !alertGetoond.has(best.id)) {
+      lastAlertTime=Date.now(); alertLoc=best; alertGetoond.add(best.id);
+      const aankomst = new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('alert-text').innerHTML=
+        `<strong>${best.naam}</strong><br>${best.straat} ${best.nr}, ${best.plaats}<br><br>📏 <strong>${Math.round(minD)}m</strong> &nbsp;🕐 ${aankomst}`;
+      document.getElementById('alert').style.display='block';
+      map.setView([best.lat,best.lon],17,{animate:true});
+    }
+  }
+
+  // Oranje pins (hercontrole) — kleine banner bovenaan
+  if (Date.now()-lastHerAlertTime > 30000) {
+    const her = LOCS.filter(l=>(st(l)==='her'||st(l)==='fout')&&l.lat&&l.lon);
+    let best=null, minD=Infinity;
+    her.forEach(l=>{const d=berekenAfstand(la,lo,l.lat,l.lon);if(d<minD){minD=d;best=l;}});
+    if (best && minD<=PROX_ALERT && !herAlertGetoond.has(best.id)) {
+      lastHerAlertTime=Date.now(); herAlertGetoond.add(best.id);
+      document.getElementById('her-alert-text').textContent=
+        `⚠️ Hercontrole: ${best.naam} — ${Math.round(minD)}m`;
+      document.getElementById('her-alert').style.display='block';
+      setTimeout(()=>document.getElementById('her-alert').style.display='none', 8000);
+    }
+  }
+}
+
+function checkBezoek(la,lo) {
+  // Automatisch bezoek registreren als je stilstaat bij een bedrijf
+  const dichtstbij = LOCS.filter(l=>l.lat&&l.lon).reduce((best,l)=>{
+    const d=berekenAfstand(la,lo,l.lat,l.lon);
+    return (!best||d<best.d)?{l,d}:best;
+  }, null);
+
+  if (!dichtstbij || dichtstbij.d > PROX_BEZOEK) {
+    // Te ver weg — reset stilstandtimer
+    if (stilstandTimer) { clearTimeout(stilstandTimer); stilstandTimer=null; stilstandLoc=null; }
+    // Auto rijdt weg van huidig bezoek
+    if (huidigBezoek && berekenAfstand(la,lo,huidigBezoek.loc.lat,huidigBezoek.loc.lon) > 150) {
+      sluitBezoek();
+    }
+    return;
+  }
+
+  const loc = dichtstbij.l;
+  if (stilstandLoc?.id !== loc.id) {
+    // Nieuw potentieel bezoek
+    if (stilstandTimer) clearTimeout(stilstandTimer);
+    stilstandLoc = loc;
+    stilstandTimer = setTimeout(()=>{
+      if (mySpeed < 2) startBezoek(loc); // Bevestig bezoek na stilstand
+    }, STILSTAND_MS);
+  }
+}
+
+function navToAlert() { if (alertLoc) navTo(alertLoc.lat,alertLoc.lon); }
+function closeAlert() {
+  document.getElementById('alert').style.display='none';
+  if (myLat&&myLon) map.setView([myLat,myLon],15,{animate:true});
+}
+
+// ══════════════════════════════════════════════
+//  DAGRAPPORT
+// ══════════════════════════════════════════════
+function toonRapport() {
+  const log = getDagLog().filter(v=>isVandaag(v.aankomst));
+  const datum = new Date().toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('rapport-datum').textContent = datum;
+
+  const body = document.getElementById('rapport-body');
+  body.innerHTML = '';
+
+  if (log.length === 0) {
+    body.innerHTML = '<p style="color:#6e7681;font-size:12px;text-align:center;margin-top:30px;">Nog geen bezoeken vandaag geregistreerd.</p>';
+  } else {
+    log.forEach(v => {
+      const aankomst = new Date(v.aankomst).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      const vertrek  = new Date(v.vertrek).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+      const duurMin  = Math.floor(v.duurSec/60);
+      const duurSec  = v.duurSec%60;
+      const duurStr  = duurMin>0 ? `${duurMin}m ${duurSec}s` : `${duurSec}s`;
+      const sc = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw'}[v.status||'todo'];
+      const sl = {todo:'Te doen',goed:'Goed ✓',fout:'Fout',her:'Hercontrole',gestopt:'Gestopt'}[v.status||'todo'];
+      body.innerHTML += `<div class="rapport-item">
+        <div class="rapport-naam">${v.naam}</div>
+        <div class="rapport-meta">📍 ${v.adres}<br>🕐 Aankomst: ${aankomst} &nbsp;|&nbsp; Vertrek: ${vertrek}<br>⏱ Stilstand: ${duurStr}</div>
+        <span class="rapport-status badge ${sc}">${sl}</span>
+      </div>`;
+    });
+  }
+
+  // Totalen
+  const totaalSec = log.reduce((s,v)=>s+v.duurSec,0);
+  const totaalMin = Math.floor(totaalSec/60);
+  document.getElementById('rs-n').textContent    = log.length;
+  document.getElementById('rs-tijd').textContent  = totaalMin>0?`${totaalMin} min`:`${totaalSec}s`;
+  document.getElementById('rs-km').textContent    = ritKm.toFixed(1)+' km';
+  document.getElementById('rapport').style.display='flex';
+}
+function sluitRapport() { document.getElementById('rapport').style.display='none'; }
+
+// ══════════════════════════════════════════════
+//  CSV + GEOCODING
+// ══════════════════════════════════════════════
+function parseCSVRow(line) {
+  const r=[];let c='',q=false;
+  for(const ch of line){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}
+  r.push(c.trim());return r;
+}
+function parseStatus(v) {
+  if(!v||v==='')return'todo';
+  const s=v.trim().toLowerCase().replace(/[^a-z]/g,'');
+  if(s==='goed'||s==='gecontroleerd'||s==='ok')return'goed';
+  if(s==='fout'||s==='afgekeurd')return'fout';
+  if(s==='hercontrole'||s==='her'||s==='herkeuring')return'her';
+  if(s==='gestopt'||s==='gestorpt'||s==='geenhouder'||s==='vervallen')return'gestopt';
+  if(s==='thuis')return'thuis';
+  if(s==='kantoor')return'kantoor';
+  return'todo';
+}
+function parseDatum(v) {
+  if(!v||v==='')return'';
+  return v.trim();
+}
+
+async function loadFromSheet() {
+  const resp=await fetch(CSV_URL+'&t='+Date.now(),{cache:'no-cache'});
+  if(!resp.ok)throw new Error('HTTP '+resp.status);
+  const txt=await resp.text();
+  if(txt.trim().toLowerCase().startsWith('<!'))throw new Error('Geen CSV');
+  const lines=txt.trim().split(/\r?\n/);
+  const first=parseCSVRow(lines[0]);
+  const firstLow=first.map(h=>h.toLowerCase().trim());
+  const heeftHeader=firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
+  const startRij=heeftHeader?1:0;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6;
+  if(heeftHeader){
+    iNaam    =firstLow.findIndex(h=>h.includes('naam'))??0;
+    iDatum   =firstLow.findIndex(h=>h.includes('datum')||h.includes('date'))??1;
+    iStraat  =firstLow.findIndex(h=>h.includes('straat')||h.includes('adres'))??2;
+    iNr      =firstLow.findIndex(h=>h==='nr'||h.includes('huisnr')||h.includes('nummer'))??3;
+    iPostcode=firstLow.findIndex(h=>h.includes('postcode'))??4;
+    iPlaats  =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
+    iStatus  =firstLow.findIndex(h=>h.includes('status'))??6;
+  }
+  const locs=[];
+  for(let i=startRij;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const row=parseCSVRow(lines[i]);
+    const naam=(row[iNaam]||'').trim();
+    if(!naam)continue;
+    const straat  =(row[iStraat]  ||'').trim();
+    const nr      =(row[iNr]      ||'').trim();
+    const postcode=(row[iPostcode]||'').trim().replace(/\s/g,'');
+    const plaats  =(row[iPlaats]  ||'').trim();
+    const status  =parseStatus(row[iStatus]||'');
+    const datum   =parseDatum(row[iDatum]||'');
+    const adresQ  =`${straat} ${nr}, ${postcode} ${plaats}, Nederland`.trim();
+    locs.push({id:i,naam,straat,nr,postcode,plaats,status,datum,adresQ,lat:null,lon:null});
+  }
+  return locs;
+}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function geocodeOne(q){
+  const url=`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=nl`;
+  try{
+    const r=await fetch(url,{headers:{'User-Agent':'WaterschapNZ-ErfControle/5.0'}});
+    const d=await r.json();
+    if(d&&d[0])return{lat:parseFloat(d[0].lat),lon:parseFloat(d[0].lon)};
+  }catch(e){}
+  return null;
+}
+
+function loadGeoCache(){try{return JSON.parse(localStorage.getItem(GEO_CACHE_KEY)||'{}')}catch(e){return{}}}
+function saveGeoCache(c){try{localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(c))}catch(e){}}
+
+async function geocodeAll(locs){
+  const cache=loadGeoCache();
+  let nieuw=0;
+  const n=locs.length;
+  for(let i=0;i<n;i++){
+    const loc=locs[i];
+    const key=loc.adresQ.toLowerCase().replace(/\s/g,'');
+    if(cache[key]){loc.lat=cache[key].lat;loc.lon=cache[key].lon;continue;}
+    document.getElementById('loadmsg').textContent=`Adres ${i+1}/${n}: ${loc.naam.substring(0,25)}...`;
+    document.getElementById('loadbar-fill').style.width=((i+1)/n*100)+'%';
+    let res=await geocodeOne(loc.adresQ);
+    if(!res)res=await geocodeOne(`${loc.postcode} ${loc.plaats}, Nederland`);
+    if(res){loc.lat=res.lat;loc.lon=res.lon;cache[key]=res;nieuw++;await sleep(1100);}
+  }
+  if(nieuw>0)saveGeoCache(cache);
+  return locs;
+}
+
+// ══════════════════════════════════════════════
+//  STATUS + MARKERS
+// ══════════════════════════════════════════════
+const st   = l=>l.status||'todo';
+const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8'};
+const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR'};
+const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka'};
+
+function mkIcon(status,selected){
+  const c=COL[status]||COL.todo,sz=selected?36:28,h=sz+10;
+
+  // Thuis = huis-icoontje, Kantoor = gebouw-icoontje
+  if(status==='thuis'||status==='kantoor'){
+    const emoji=status==='thuis'?'🏠':'🏢';
+    return L.divIcon({
+      html:`<div style="width:${sz}px;height:${sz}px;background:${c};border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:${sz*.5}px;box-shadow:0 2px 8px rgba(0,0,0,.4);">${emoji}</div>`,
+      iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-(sz/2+4)],className:''
+    });
+  }
+
+  let inn='';
+  if(status==='goed')inn=`<path d="M${sz/2-6} ${sz*.56}l5 5 7-7" stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  else if(status==='fout'||status==='her')inn=`<text x="${sz/2}" y="${sz*.63}" text-anchor="middle" font-size="13" font-weight="bold" fill="${c}">!</text>`;
+  else if(status==='gestopt')inn=`<line x1="${sz/2-5}" y1="${sz*.5}" x2="${sz/2+5}" y2="${sz*.6}" stroke="${c}" stroke-width="2.5"/><line x1="${sz/2+5}" y1="${sz*.5}" x2="${sz/2-5}" y2="${sz*.6}" stroke="${c}" stroke-width="2.5"/>`;
+  else inn=`<circle cx="${sz/2}" cy="${sz*.54}" r="4.5" fill="${c}"/>`;
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${h}" viewBox="0 0 ${sz} ${h}">
+      <path d="M${sz/2} 0C${sz*.15} 0 0 ${sz*.36} 0 ${sz*.52}c0 ${sz*.4} ${sz/2} ${sz*.48} ${sz/2} ${sz*.48}S${sz} ${sz*.92} ${sz} ${sz*.52}C${sz} ${sz*.36} ${sz*.85} 0 ${sz/2} 0z" fill="${c}" opacity=".92"/>
+      <circle cx="${sz/2}" cy="${sz*.52}" r="${sz*.28}" fill="white" opacity=".95"/>
+      ${inn}</svg>`,
+    iconSize:[sz,h],iconAnchor:[sz/2,h],popupAnchor:[0,-(h+2)],className:''
+  });
+}
+
+function render(){
+  markers.forEach(m=>map.removeLayer(m));markers=[];
+  const fR=document.getElementById('fR').checked,fG=document.getElementById('fG').checked;
+  const fO=document.getElementById('fO').checked,fW=document.getElementById('fW').checked;
+  const fTH=document.getElementById('fTH').checked,fKA=document.getElementById('fKA').checked;
+  LOCS.forEach(loc=>{
+    if(!loc.lat||!loc.lon)return;
+    const s=st(loc);
+    if(s==='todo'&&!fR)return;
+    if(s==='goed'&&!fG)return;
+    if((s==='fout'||s==='her')&&!fO)return;
+    if(s==='gestopt'&&!fW)return;
+    if(s==='thuis'&&!fTH)return;
+    if(s==='kantoor'&&!fKA)return;
+    const m=L.marker([loc.lat,loc.lon],{icon:mkIcon(s,loc.id===selId),interactive:true}).addTo(map);
+    m.on('click',(e)=>{L.DomEvent.stopPropagation(e);showDp(loc.id);});
+    m.on('touchend',(e)=>{L.DomEvent.stopPropagation(e);showDp(loc.id);});
+    markers.push(m);
+  });
+  // Thuis en Kantoor tellen NIET mee in voortgang
+  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor');
+  const totaal=bedrijven.length;
+  document.getElementById('cr').textContent=bedrijven.filter(l=>st(l)==='todo').length;
+  document.getElementById('cg').textContent=bedrijven.filter(l=>st(l)==='goed').length;
+  document.getElementById('co').textContent=bedrijven.filter(l=>st(l)==='fout'||st(l)==='her').length;
+  document.getElementById('cw').textContent=bedrijven.filter(l=>st(l)==='gestopt').length;
+  const n=bedrijven.filter(l=>st(l)==='goed').length;
+  const p=totaal>0?Math.min(100,Math.round(n/totaal*100)):0;
+  document.getElementById('pfill').style.width=p+'%';
+  document.getElementById('plbl').textContent=`${n} / ${totaal} (${p}%)`;
+}
+
+function showDp(id){
+  const l=LOCS.find(x=>x.id===id);if(!l)return;
+  selId=id;render();
+  const s=st(l);
+  const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
+  document.getElementById('dpc').innerHTML=`
+    <div class="dn">${l.naam}</div>
+    <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
+    ${datumTxt}
+    <span class="badge ${BCLS[s]}">${LBL[s]}</span>
+    <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
+  document.getElementById('dp').style.display='block';
+  document.getElementById('fp').style.display='none';
+}
+function closeDp(){selId=null;document.getElementById('dp').style.display='none';render();}
+function navTo(lat,lon){window.open(`https://maps.google.com/?daddr=${lat},${lon}`,'_blank');}
+function toggleFp(){
+  const p=document.getElementById('fp'),open=p.style.display==='block';
+  p.style.display=open?'none':'block';
+  document.getElementById('bfp').classList.toggle('on',!open);
+  if(!open)document.getElementById('dp').style.display='none';
+}
+function zoomAll(){const v=LOCS.filter(l=>l.lat&&l.lon);if(v.length)map.fitBounds(L.latLngBounds(v.map(l=>[l.lat,l.lon])),{padding:[30,30]});}
+function zoomTodo(){const v=LOCS.filter(l=>st(l)==='todo'&&l.lat&&l.lon);if(v.length)map.fitBounds(L.latLngBounds(v.map(l=>[l.lat,l.lon])),{padding:[40,40]});}
+map.on('click',()=>closeDp());
+
+// ══════════════════════════════════════════════
+//  OPSTARTEN
+// ══════════════════════════════════════════════
+async function refreshAll(){
+  document.getElementById('loading').style.display='flex';
+  document.getElementById('loadmsg').textContent='Gegevens ophalen uit Google Sheets...';
+  document.getElementById('loadbar-fill').style.width='0%';
+  try{
+    const raw=await loadFromSheet();
+    document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${raw.length} bedrijven`;
+    LOCS=await geocodeAll(raw);
+    document.getElementById('loading').style.display='none';
+    render();zoomAll();
+  }catch(e){
+    console.error(e);
+    document.getElementById('loadmsg').textContent='⚠ '+e.message;
+    document.getElementById('syncbadge').textContent='⚠ Fout';
+    document.getElementById('loading').style.display='none';
+    render();
+  }
+}
+
+async function syncStatusOnly(){
+  try{
+    const raw=await loadFromSheet();
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;}});
+    const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
+    if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
+    alertGetoond.clear(); herAlertGetoond.clear(); // reset alerts zodat nieuwe locaties weer melden
+    document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}`;
+    render();
+  }catch(e){console.warn('Sync:',e);}
+}
+
+refreshAll();
+setInterval(syncStatusOnly,2*60*1000);
+</script>
+</body>
+</html>
