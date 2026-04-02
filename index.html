@@ -571,6 +571,10 @@ async function loadFromSheet() {
     iStatus  =firstLow.findIndex(h=>h.includes('status'))??6;
     iHerDatum=firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
   }
+  // DEBUG — toon kolomindices in console
+  console.log('HEADERS:', firstLow);
+  console.log('iNaam:', iNaam, 'iDatum:', iDatum, 'iStraat:', iStraat, 'iNr:', iNr, 'iPostcode:', iPostcode, 'iPlaats:', iPlaats, 'iStatus:', iStatus, 'iHerDatum:', iHerDatum);
+
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
     if(!lines[i].trim())continue;
@@ -584,6 +588,7 @@ async function loadFromSheet() {
     const status  =parseStatus(row[iStatus]||'');
     const datum   =parseDatum(row[iDatum]||'');
     const herDatum =parseDatum(iHerDatum>=0&&row[iHerDatum]?row[iHerDatum]:'');
+    if(i<=startRij+2) console.log(`Rij ${i}: naam="${naam}" datum="${datum}" herDatum="${herDatum}" status="${row[iStatus]||''}" rij:`, row);
     const adresQ  =`${straat} ${nr}, ${postcode} ${plaats}, Nederland`.trim();
     locs.push({id:i,naam,straat,nr,postcode,plaats,status,datum,herDatum,adresQ,lat:null,lon:null});
   }
