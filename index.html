@@ -94,6 +94,8 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 .bnt{background:#3d1f0a;color:#f97316;border:1px solid #f97316;}
 .bvj{background:#3d3000;color:#eab308;border:1px solid #eab308;}
 .opm{font-size:11px;color:#fbbf24;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;background:#2d1f0a;border:1px solid #f97316;border-radius:5px;padding:4px 8px;}
+.oppas{font-size:12px;font-weight:600;color:#fff;font-family:'IBM Plex Mono',monospace;margin-bottom:10px;background:#7f1d1d;border:2px solid #ef4444;border-radius:6px;padding:8px 10px;text-align:center;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.7;}}
 .dnav{display:block;width:100%;margin-top:4px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
 .dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
 .leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
@@ -242,7 +244,7 @@ async function loadFromSheet() {
   const firstLow = first.map(h=>h.toLowerCase().trim());
   const heeftHeader = firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
   const startRij = heeftHeader?1:0;
-  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8,iNietThuisDatum=9;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8,iNietThuisDatum=9,iOppassen=10;
   if(heeftHeader){
     iNaam     =firstLow.findIndex(h=>h.includes('naam'))??0;
     iDatum    =firstLow.findIndex(h=>(h.includes('datum')||h.includes('date'))&&!h.includes('her'))??1;
@@ -271,6 +273,7 @@ async function loadFromSheet() {
       herDatum:iHerDatum>=0?(row[iHerDatum]||'').trim():'',
       opmerking:iOpmerking>=0?(row[iOpmerking]||'').trim():'',
       nietThuisDatum:iNietThuisDatum>=0?(row[iNietThuisDatum]||'').trim():'',
+      oppassen:iOppassen>=0?['ja','yes','1','waar','true'].includes(String(row[iOppassen]||'').trim().toLowerCase()):false,
       status:parseStatus(row[iStatus]||''),
       adresQ:`${(row[iStraat]||'').trim()} ${(row[iNr]||'').trim()}, ${(row[iPostcode]||'').trim()} ${(row[iPlaats]||'').trim()}, Nederland`,
       lat:null, lon:null
@@ -409,10 +412,12 @@ function showDp(id) {
   selId=id;render();
   const s=st(l);
   const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
+  const oppasTxt=l.oppassen?`<div class="oppas">💣 OPPASSEN — kan agressief zijn!</div>`:'';
   const herTxt=(l.herDatum&&(st(l)==='her'||st(l)==='fout'))?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
   const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:'';
   const ntTxt=l.nietThuisDatum?`<div class="dd">🚗 LGW: ${l.nietThuisDatum}</div>`:'';
   document.getElementById('dpc').innerHTML=`
+    ${oppasTxt}
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
     ${datumTxt}${ntTxt}${opmTxt}${herTxt}
@@ -606,7 +611,7 @@ async function refreshAll(){
     const raw=await loadFromSheet();
     LOCS=await geocodeAll(raw);
     // Zorg dat herDatum altijd van raw data komt
-    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;loc.opmerking=r.opmerking;loc.nietThuisDatum=r.nietThuisDatum;}});
+    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;loc.opmerking=r.opmerking;loc.nietThuisDatum=r.nietThuisDatum;loc.oppassen=r.oppassen;}});
     document.getElementById('loading').style.display='none';
     document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${LOCS.length} bedrijven`;
     render();zoomAll();
@@ -621,7 +626,7 @@ async function refreshAll(){
 async function syncSheets(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.nietThuisDatum=r.nietThuisDatum;}});
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.nietThuisDatum=r.nietThuisDatum;ex.oppassen=r.oppassen;}});
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear();herAlertGetoond.clear();
