@@ -91,6 +91,8 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 .bw{background:#21262d;color:#8b949e;border:1px solid #484f58;}
 .bth{background:#2d1f4d;color:#a78bfa;border:1px solid #a78bfa;}
 .bka{background:#0c2a3d;color:#38bdf8;border:1px solid #38bdf8;}
+.bnt{background:#3d1f0a;color:#f97316;border:1px solid #f97316;}
+.opm{font-size:11px;color:#fbbf24;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;background:#2d1f0a;border:1px solid #f97316;border-radius:5px;padding:4px 8px;}
 .dnav{display:block;width:100%;margin-top:4px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
 .dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
 .leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
@@ -150,6 +152,7 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
   <div class="fr"><input type="checkbox" id="fO" checked onchange="render()"><label for="fO">🟠 Hercontrole / fout</label></div>
   <div class="fr"><input type="checkbox" id="fW" checked onchange="render()"><label for="fW">⚪ Gestopt</label></div>
   <div class="fr"><input type="checkbox" id="fTH" checked onchange="render()"><label for="fTH">🏠 Thuis</label></div>
+  <div class="fr"><input type="checkbox" id="fNT" checked onchange="render()"><label for="fNT">🏠❌ Niet thuis</label></div>
   <div class="fr"><input type="checkbox" id="fKA" checked onchange="render()"><label for="fKA">🏢 Kantoor</label></div>
 </div>
 <div id="dp"><button class="dpc" onclick="closeDp()">✕</button><div id="dpc"></div></div>
@@ -216,6 +219,7 @@ function parseStatus(v) {
   if(s==='gestopt'||s==='gestorpt'||s==='geenhouder'||s==='vervallen')return'gestopt';
   if(s==='thuis')return'thuis';
   if(s==='kantoor')return'kantoor';
+  if(s==='nietthuis'||s==='nthuis'||s==='nietthuisbrief'||s==='brief'||s==='niet')return'nietthuis';
   return'todo';
 }
 
@@ -232,7 +236,7 @@ async function loadFromSheet() {
   const firstLow = first.map(h=>h.toLowerCase().trim());
   const heeftHeader = firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
   const startRij = heeftHeader?1:0;
-  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8;
   if(heeftHeader){
     iNaam     =firstLow.findIndex(h=>h.includes('naam'))??0;
     iDatum    =firstLow.findIndex(h=>(h.includes('datum')||h.includes('date'))&&!h.includes('her'))??1;
@@ -241,7 +245,8 @@ async function loadFromSheet() {
     iPostcode =firstLow.findIndex(h=>h.includes('postcode'))??4;
     iPlaats   =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
     iStatus   =firstLow.findIndex(h=>h.includes('status'))??6;
-    iHerDatum =firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
+    iHerDatum  =firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
+    iOpmerking =firstLow.findIndex(h=>h.includes('opmerking')||h.includes('notitie')||h.includes('note')||h.includes('remark'));
   }
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
@@ -257,6 +262,7 @@ async function loadFromSheet() {
       plaats:(row[iPlaats]||'').trim(),
       datum:(row[iDatum]||'').trim(),
       herDatum:iHerDatum>=0?(row[iHerDatum]||'').trim():'',
+      opmerking:iOpmerking>=0?(row[iOpmerking]||'').trim():'',
       status:parseStatus(row[iStatus]||''),
       adresQ:`${(row[iStraat]||'').trim()} ${(row[iNr]||'').trim()}, ${(row[iPostcode]||'').trim()} ${(row[iPlaats]||'').trim()}, Nederland`,
       lat:null, lon:null
@@ -298,12 +304,25 @@ async function geocodeAll(locs) {
 //  STATUS & KLEUREN
 // ═══════════════════════════════════
 const st   = l=>l.status||'todo';
-const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8'};
-const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR'};
-const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka'};
+const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8',nietthuis:'#f97316'};
+const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR',nietthuis:'NIET THUIS'};
+const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka',nietthuis:'bnt'};
 
 function mkIcon(status, selected) {
   const c=COL[status]||COL.todo, sz=selected?36:28, h=sz+10;
+  if(status==='nietthuis'){
+    const hsz=sz+10;
+    return L.divIcon({
+      html:`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${hsz}" viewBox="0 0 ${sz} ${hsz}">
+        <path d="M${sz/2} 0C${sz*.15} 0 0 ${sz*.36} 0 ${sz*.52}c0 ${sz*.4} ${sz/2} ${sz*.48} ${sz/2} ${sz*.48}S${sz} ${sz*.92} ${sz} ${sz*.52}C${sz} ${sz*.36} ${sz*.85} 0 ${sz/2} 0z" fill="#f97316" opacity=".95"/>
+        <circle cx="${sz/2}" cy="${sz*.52}" r="${sz*.28}" fill="white" opacity=".95"/>
+        <text x="${sz/2}" y="${sz*.63}" text-anchor="middle" font-size="${sz*.32}" fill="#f97316">🏠</text>
+        <line x1="${sz*.62}" y1="${sz*.34}" x2="${sz*.82}" y2="${sz*.54}" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="${sz*.82}" y1="${sz*.34}" x2="${sz*.62}" y2="${sz*.54}" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>`,
+      iconSize:[sz,hsz],iconAnchor:[sz/2,hsz],popupAnchor:[0,-(hsz+2)],className:''
+    });
+  }
   if(status==='thuis'||status==='kantoor'){
     const emoji=status==='thuis'?'🏠':'🏢';
     return L.divIcon({html:`<div style="width:${sz}px;height:${sz}px;background:${c};border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:${sz*.5}px;box-shadow:0 2px 8px rgba(0,0,0,.4);">${emoji}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],popupAnchor:[0,-(sz/2+4)],className:''});
@@ -326,19 +345,20 @@ function render() {
   markers.forEach(m=>map.removeLayer(m));markers=[];
   const fR=document.getElementById('fR').checked,fG=document.getElementById('fG').checked;
   const fO=document.getElementById('fO').checked,fW=document.getElementById('fW').checked;
-  const fTH=document.getElementById('fTH').checked,fKA=document.getElementById('fKA').checked;
+  const fTH=document.getElementById('fTH').checked,fKA=document.getElementById('fKA').checked,fNT=document.getElementById('fNT').checked;
   LOCS.forEach(loc=>{
     if(!loc.lat||!loc.lon)return;
     const s=st(loc);
     if(s==='todo'&&!fR)return;if(s==='goed'&&!fG)return;
     if((s==='fout'||s==='her')&&!fO)return;if(s==='gestopt'&&!fW)return;
-    if(s==='thuis'&&!fTH)return;if(s==='kantoor'&&!fKA)return;
+    if(s==='thuis'&&!fTH)return;if(s==='kantoor'&&!fKA)return;if(s==='nietthuis'&&!fNT)return;
+
     const m=L.marker([loc.lat,loc.lon],{icon:mkIcon(s,loc.id===selId),interactive:true,pane:'markers'}).addTo(map);
     m.on('click',(e)=>{L.DomEvent.stop(e);showDp(loc.id);});
     m.on('touchstart',(e)=>{L.DomEvent.stop(e);showDp(loc.id);});
     markers.push(m);
   });
-  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor');
+  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor'&&st(l)!=='nietthuis');
   const totaal=bedrijven.length;
   document.getElementById('cr').textContent=bedrijven.filter(l=>st(l)==='todo').length;
   document.getElementById('cg').textContent=bedrijven.filter(l=>st(l)==='goed').length;
@@ -358,11 +378,12 @@ function showDp(id) {
   selId=id;render();
   const s=st(l);
   const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
-  const herTxt=l.herDatum?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
+  const herTxt=l.herDatum?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:''; 
+  const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:''; 
   document.getElementById('dpc').innerHTML=`
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
-    ${datumTxt}${herTxt}
+    ${datumTxt}${herTxt}${opmTxt}
     <span class="badge ${BCLS[s]}">${LBL[s]}</span>
     <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
   document.getElementById('dp').style.display='block';
@@ -568,7 +589,7 @@ async function refreshAll(){
 async function syncSheets(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;}});
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;}});
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear();herAlertGetoond.clear();
