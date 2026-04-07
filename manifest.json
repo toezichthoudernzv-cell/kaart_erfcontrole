@@ -1,0 +1,24 @@
+{
+  "name": "Erfcontrole Kaart",
+  "short_name": "Erfcontrole",
+  "description": "Erfcontrole kaart Waterschap Noorderzijlvest - Westerkwartier",
+  "start_url": "/kaart_erfcontrole/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#161b22",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%23161b22'/><circle cx='96' cy='80' r='34' fill='none' stroke='%2358a6ff' stroke-width='8'/><line x1='96' y1='114' x2='96' y2='148' stroke='%2358a6ff' stroke-width='8'/><circle cx='96' cy='80' r='12' fill='%23f85149'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23161b22'/><circle cx='256' cy='210' r='90' fill='none' stroke='%2358a6ff' stroke-width='20'/><line x1='256' y1='300' x2='256' y2='400' stroke='%2358a6ff' stroke-width='20'/><circle cx='256' cy='210' r='32' fill='%23f85149'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["utilities", "navigation"],
+  "lang": "nl"
+}
