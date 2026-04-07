@@ -92,6 +92,7 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 .bth{background:#2d1f4d;color:#a78bfa;border:1px solid #a78bfa;}
 .bka{background:#0c2a3d;color:#38bdf8;border:1px solid #38bdf8;}
 .bnt{background:#3d1f0a;color:#f97316;border:1px solid #f97316;}
+.bvj{background:#3d3000;color:#eab308;border:1px solid #eab308;}
 .opm{font-size:11px;color:#fbbf24;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;background:#2d1f0a;border:1px solid #f97316;border-radius:5px;padding:4px 8px;}
 .dnav{display:block;width:100%;margin-top:4px;padding:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:5px;cursor:pointer;text-align:center;}
 .dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
@@ -153,6 +154,7 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
   <div class="fr"><input type="checkbox" id="fW" checked onchange="render()"><label for="fW">⚪ Gestopt</label></div>
   <div class="fr"><input type="checkbox" id="fTH" checked onchange="render()"><label for="fTH">🏠 Thuis</label></div>
   <div class="fr"><input type="checkbox" id="fNT" checked onchange="render()"><label for="fNT">🏠❌ Niet thuis</label></div>
+  <div class="fr"><input type="checkbox" id="fVJ" checked onchange="render()"><label for="fVJ">⚠️ Vorig jaar gedaan</label></div>
   <div class="fr"><input type="checkbox" id="fKA" checked onchange="render()"><label for="fKA">🏢 Kantoor</label></div>
 </div>
 <div id="dp"><button class="dpc" onclick="closeDp()">✕</button><div id="dpc"></div></div>
@@ -213,13 +215,17 @@ function parseCSVRow(line) {
 function parseStatus(v) {
   if(!v||v==='')return'todo';
   const s=v.trim().toLowerCase().replace(/[^a-z]/g,'');
+  if(s==='nogtecontroleren'||s==='tegaan'||s==='tedoen')return'todo';
   if(s==='goed'||s==='gecontroleerd'||s==='ok')return'goed';
   if(s==='fout'||s==='afgekeurd')return'fout';
   if(s==='hercontrole'||s==='her'||s==='herkeuring')return'her';
   if(s==='gestopt'||s==='gestorpt'||s==='geenhouder'||s==='vervallen')return'gestopt';
   if(s==='thuis')return'thuis';
   if(s==='kantoor')return'kantoor';
-  if(s==='nietthuis'||s==='nthuis'||s==='nietthuisbrief'||s==='brief'||s==='niet')return'nietthuis';
+  // Vorig jaar gedaan — check VOOR niet thuis want beide bevatten letters die overlappen
+  if(s==='vorigjaargedaan'||s==='vorigjaar'||s==='nietditjaar'||s==='overslaan'||s.includes('vorigjaar')||s.includes('vorig'))return'vorigjaar';
+  // Niet thuis — check op combinatie niet+thuis
+  if(s==='nietthuis'||s==='nthuis'||(s.includes('niet')&&s.includes('thuis')))return'nietthuis';
   return'todo';
 }
 
@@ -236,7 +242,7 @@ async function loadFromSheet() {
   const firstLow = first.map(h=>h.toLowerCase().trim());
   const heeftHeader = firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
   const startRij = heeftHeader?1:0;
-  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8,iNietThuisDatum=9;
   if(heeftHeader){
     iNaam     =firstLow.findIndex(h=>h.includes('naam'))??0;
     iDatum    =firstLow.findIndex(h=>(h.includes('datum')||h.includes('date'))&&!h.includes('her'))??1;
@@ -246,7 +252,8 @@ async function loadFromSheet() {
     iPlaats   =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
     iStatus   =firstLow.findIndex(h=>h.includes('status'))??6;
     iHerDatum  =firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
-    iOpmerking =firstLow.findIndex(h=>h.includes('opmerking')||h.includes('notitie')||h.includes('note')||h.includes('remark'));
+    iOpmerking     =firstLow.findIndex(h=>h.includes('opmerking')||h.includes('notitie')||h.includes('note')||h.includes('remark'));
+    iNietThuisDatum=firstLow.findIndex(h=>h.includes('lgw')||h.includes('langs')||h.includes('geweest')||(h.includes('niet')&&h.includes('thuis')));
   }
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
@@ -263,6 +270,7 @@ async function loadFromSheet() {
       datum:(row[iDatum]||'').trim(),
       herDatum:iHerDatum>=0?(row[iHerDatum]||'').trim():'',
       opmerking:iOpmerking>=0?(row[iOpmerking]||'').trim():'',
+      nietThuisDatum:iNietThuisDatum>=0?(row[iNietThuisDatum]||'').trim():'',
       status:parseStatus(row[iStatus]||''),
       adresQ:`${(row[iStraat]||'').trim()} ${(row[iNr]||'').trim()}, ${(row[iPostcode]||'').trim()} ${(row[iPlaats]||'').trim()}, Nederland`,
       lat:null, lon:null
@@ -304,12 +312,34 @@ async function geocodeAll(locs) {
 //  STATUS & KLEUREN
 // ═══════════════════════════════════
 const st   = l=>l.status||'todo';
-const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8',nietthuis:'#f97316'};
-const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR',nietthuis:'NIET THUIS'};
-const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka',nietthuis:'bnt'};
+const COL  = {todo:'#f85149',goed:'#3fb950',fout:'#ff9500',her:'#ff9500',gestopt:'#6e7681',thuis:'#a78bfa',kantoor:'#38bdf8',nietthuis:'#f97316',vorigjaar:'#eab308'};
+const LBL  = {todo:'NOG TE CONTROLEREN',goed:'GECONTROLEERD ✓',fout:'FOUT',her:'HERCONTROLE',gestopt:'GESTOPT',thuis:'THUIS',kantoor:'KANTOOR',nietthuis:'NIET THUIS',vorigjaar:'VORIG JAAR GEDAAN'};
+const BCLS = {todo:'br',goed:'bgg',fout:'bo',her:'bo',gestopt:'bw',thuis:'bth',kantoor:'bka',nietthuis:'bnt',vorigjaar:'bvj'};
 
 function mkIcon(status, selected) {
   const c=COL[status]||COL.todo, sz=selected?36:28, h=sz+10;
+  if(status==='vorigjaar'){
+    const vsz=sz+10;
+    return L.divIcon({
+      html:`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${vsz}" viewBox="0 0 ${sz} ${vsz}">
+        <path d="M${sz/2} 0C${sz*.15} 0 0 ${sz*.36} 0 ${sz*.52}c0 ${sz*.4} ${sz/2} ${sz*.48} ${sz/2} ${sz*.48}S${sz} ${sz*.92} ${sz} ${sz*.52}C${sz} ${sz*.36} ${sz*.85} 0 ${sz/2} 0z" fill="#eab308" opacity=".95"/>
+        <circle cx="${sz/2}" cy="${sz*.52}" r="${sz*.28}" fill="white" opacity=".95"/>
+        <text x="${sz/2}" y="${sz*.64}" text-anchor="middle" font-size="${sz*.36}" fill="#eab308">⚠️</text>
+      </svg>`,
+      iconSize:[sz,vsz],iconAnchor:[sz/2,vsz],popupAnchor:[0,-(vsz+2)],className:''
+    });
+  }
+  if(status==='goed'){
+    const gsz=sz+10;
+    return L.divIcon({
+      html:`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${gsz}" viewBox="0 0 ${sz} ${gsz}">
+        <path d="M${sz/2} 0C${sz*.15} 0 0 ${sz*.36} 0 ${sz*.52}c0 ${sz*.4} ${sz/2} ${sz*.48} ${sz/2} ${sz*.48}S${sz} ${sz*.92} ${sz} ${sz*.52}C${sz} ${sz*.36} ${sz*.85} 0 ${sz/2} 0z" fill="#3fb950" opacity=".92"/>
+        <circle cx="${sz/2}" cy="${sz*.52}" r="${sz*.28}" fill="white" opacity=".95"/>
+        <text x="${sz/2}" y="${sz*.64}" text-anchor="middle" font-size="${sz*.36}" fill="#3fb950">✅</text>
+      </svg>`,
+      iconSize:[sz,gsz],iconAnchor:[sz/2,gsz],popupAnchor:[0,-(gsz+2)],className:''
+    });
+  }
   if(status==='nietthuis'){
     const hsz=sz+10;
     return L.divIcon({
@@ -352,13 +382,14 @@ function render() {
     if(s==='todo'&&!fR)return;if(s==='goed'&&!fG)return;
     if((s==='fout'||s==='her')&&!fO)return;if(s==='gestopt'&&!fW)return;
     if(s==='thuis'&&!fTH)return;if(s==='kantoor'&&!fKA)return;if(s==='nietthuis'&&!fNT)return;
+    const fVJ=document.getElementById('fVJ').checked;if(s==='vorigjaar'&&!fVJ)return;
 
     const m=L.marker([loc.lat,loc.lon],{icon:mkIcon(s,loc.id===selId),interactive:true,pane:'markers'}).addTo(map);
     m.on('click',(e)=>{L.DomEvent.stop(e);showDp(loc.id);});
     m.on('touchstart',(e)=>{L.DomEvent.stop(e);showDp(loc.id);});
     markers.push(m);
   });
-  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor'&&st(l)!=='nietthuis');
+  const bedrijven=LOCS.filter(l=>st(l)!=='thuis'&&st(l)!=='kantoor');
   const totaal=bedrijven.length;
   document.getElementById('cr').textContent=bedrijven.filter(l=>st(l)==='todo').length;
   document.getElementById('cg').textContent=bedrijven.filter(l=>st(l)==='goed').length;
@@ -378,12 +409,13 @@ function showDp(id) {
   selId=id;render();
   const s=st(l);
   const datumTxt=l.datum?`<div class="dd">📅 Laatste controle: ${l.datum}</div>`:'';
-  const herTxt=l.herDatum?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:''; 
-  const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:''; 
+  const herTxt=(l.herDatum&&(st(l)==='her'||st(l)==='fout'))?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
+  const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:'';
+  const ntTxt=l.nietThuisDatum?`<div class="dd">🚗 LGW: ${l.nietThuisDatum}</div>`:'';
   document.getElementById('dpc').innerHTML=`
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
-    ${datumTxt}${herTxt}${opmTxt}
+    ${datumTxt}${ntTxt}${opmTxt}${herTxt}
     <span class="badge ${BCLS[s]}">${LBL[s]}</span>
     <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
   document.getElementById('dp').style.display='block';
@@ -574,7 +606,7 @@ async function refreshAll(){
     const raw=await loadFromSheet();
     LOCS=await geocodeAll(raw);
     // Zorg dat herDatum altijd van raw data komt
-    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;}});
+    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;loc.opmerking=r.opmerking;loc.nietThuisDatum=r.nietThuisDatum;}});
     document.getElementById('loading').style.display='none';
     document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${LOCS.length} bedrijven`;
     render();zoomAll();
@@ -589,7 +621,7 @@ async function refreshAll(){
 async function syncSheets(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;}});
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.nietThuisDatum=r.nietThuisDatum;}});
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear();herAlertGetoond.clear();
