@@ -260,7 +260,7 @@ async function loadFromSheet() {
   const firstLow = first.map(h=>h.toLowerCase().trim());
   const heeftHeader = firstLow.some(h=>h.includes('naam')||h.includes('status')||h.includes('straat'));
   const startRij = heeftHeader?1:0;
-  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iHerDatum=7,iOpmerking=8,iNietThuisDatum=9,iOppassen=10;
+  let iNaam=0,iDatum=1,iStraat=2,iNr=3,iPostcode=4,iPlaats=5,iStatus=6,iZaknummer=7,iHerDatum=8,iOpmerking=9,iLGWDatum=10,iOppassen=11,iNietThuisDatum=-1;
   if(heeftHeader){
     iNaam     =firstLow.findIndex(h=>h.includes('naam'))??0;
     iDatum    =firstLow.findIndex(h=>(h.includes('datum')||h.includes('date'))&&!h.includes('her'))??1;
@@ -269,9 +269,11 @@ async function loadFromSheet() {
     iPostcode =firstLow.findIndex(h=>h.includes('postcode'))??4;
     iPlaats   =firstLow.findIndex(h=>h.includes('plaats')||h.includes('woon'))??5;
     iStatus   =firstLow.findIndex(h=>h.includes('status'))??6;
-    iHerDatum  =firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
+    iZaknummer     =firstLow.findIndex(h=>h.includes('zaaknummer')||h.includes('zaak')||h.includes('zak')||h.includes('dossier'));
+    iHerDatum      =firstLow.findIndex(h=>h.includes('hercontrole')||h.includes('herdatum')||(h.includes('her')&&h.includes('datum')));
     iOpmerking     =firstLow.findIndex(h=>h.includes('opmerking')||h.includes('notitie')||h.includes('note')||h.includes('remark'));
-    iNietThuisDatum=firstLow.findIndex(h=>h.includes('lgw')||h.includes('langs')||h.includes('geweest')||(h.includes('niet')&&h.includes('thuis')));
+    iLGWDatum      =firstLow.findIndex(h=>h.includes('lgw')||h.includes('langs')||h.includes('geweest'));
+    iOppassen      =firstLow.findIndex(h=>h.includes('oppassen')||h.includes('agressief')||h.includes('gevaar'));
   }
   const locs=[];
   for(let i=startRij;i<lines.length;i++){
@@ -286,10 +288,12 @@ async function loadFromSheet() {
       postcode:(row[iPostcode]||'').trim().replace(/\s/g,''),
       plaats:(row[iPlaats]||'').trim(),
       datum:(row[iDatum]||'').trim(),
+      zaknummer:iZaknummer>=0?(row[iZaknummer]||'').trim():'',
       herDatum:iHerDatum>=0?(row[iHerDatum]||'').trim():'',
       opmerking:iOpmerking>=0?(row[iOpmerking]||'').trim():'',
-      nietThuisDatum:iNietThuisDatum>=0?(row[iNietThuisDatum]||'').trim():'',
+      lgwDatum:iLGWDatum>=0?(row[iLGWDatum]||'').trim():'',
       oppassen:iOppassen>=0?['ja','yes','1','waar','true'].includes(String(row[iOppassen]||'').trim().toLowerCase()):false,
+      nietThuisDatum:iNietThuisDatum>=0?(row[iNietThuisDatum]||'').trim():'',
       status:parseStatus(row[iStatus]||''),
       adresQ:`${(row[iStraat]||'').trim()} ${(row[iNr]||'').trim()}, ${(row[iPostcode]||'').trim()} ${(row[iPlaats]||'').trim()}, Nederland`,
       lat:null, lon:null
@@ -431,12 +435,13 @@ function showDp(id) {
   const oppasTxt=l.oppassen?`<div class="oppas">💣 OPPASSEN — kan agressief zijn!</div>`:'';
   const herTxt=(l.herDatum&&(st(l)==='her'||st(l)==='fout'))?`<div class="dho">🔁 Hercontrole gepland: ${l.herDatum}</div>`:'';
   const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:'';
-  const ntTxt=l.nietThuisDatum?`<div class="dd">🚗 LGW: ${l.nietThuisDatum}</div>`:'';
+  const ntTxt=l.lgwDatum?`<div class="dd">🚗 LGW: ${l.lgwDatum}</div>`:'';
+  const zakTxt=l.zaknummer?`<div class="dd">📁 Zaaknummer: ${l.zaknummer}</div>`:'';
   document.getElementById('dpc').innerHTML=`
     ${oppasTxt}
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
-    ${datumTxt}${ntTxt}${opmTxt}${herTxt}
+    ${datumTxt}${ntTxt}${zakTxt}${opmTxt}${herTxt}
     <span class="badge ${BCLS[s]}">${LBL[s]}</span>
     <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
   document.getElementById('dp').style.display='block';
@@ -631,7 +636,7 @@ async function refreshAll(){
     const raw=await loadFromSheet();
     LOCS=await geocodeAll(raw);
     // Zorg dat herDatum altijd van raw data komt
-    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;loc.opmerking=r.opmerking;loc.nietThuisDatum=r.nietThuisDatum;loc.oppassen=r.oppassen;}});
+    LOCS.forEach(loc=>{const r=raw.find(r=>r.naam===loc.naam);if(r){loc.herDatum=r.herDatum;loc.datum=r.datum;loc.status=r.status;loc.opmerking=r.opmerking;loc.lgwDatum=r.lgwDatum;loc.zaknummer=r.zaknummer;loc.oppassen=r.oppassen;}});
     document.getElementById('loading').style.display='none';
     document.getElementById('syncbadge').textContent=`🕐 ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${LOCS.length} bedrijven`;
     render();zoomAll();
@@ -646,7 +651,7 @@ async function refreshAll(){
 async function syncSheets(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.nietThuisDatum=r.nietThuisDatum;ex.oppassen=r.oppassen;}});
+    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.lgwDatum=r.lgwDatum;ex.zaknummer=r.zaknummer;ex.oppassen=r.oppassen;}});
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear();herAlertGetoond.clear();
