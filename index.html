@@ -100,6 +100,23 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 .dnav:active,.dnav:hover{background:#1a3a5c;border-color:#58a6ff;color:#58a6ff;}
 .leaflet-control-zoom a{background:#161b22!important;color:#e6edf3!important;border-color:#30363d!important;}
 .leaflet-pane.leaflet-marker-pane{z-index:650!important;}
+.update-panel{background:#0d1117;border-top:1px solid #21262d;padding:10px 0 4px;margin-top:8px;}
+.update-titel{font-size:9px;color:#6e7681;font-family:'IBM Plex Mono',monospace;margin-bottom:6px;letter-spacing:.05em;}
+.status-knoppen{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px;}
+.sk{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:6px 4px;border-radius:5px;border:1px solid #30363d;background:#21262d;color:#e6edf3;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;}
+.sk:active{opacity:.7;}
+.sk.todo{border-color:#f85149;color:#f85149;}
+.sk.goed{border-color:#3fb950;color:#3fb950;}
+.sk.her{border-color:#ff9500;color:#ff9500;}
+.sk.fout{border-color:#ff9500;color:#ff9500;}
+.sk.gestopt{border-color:#6e7681;color:#6e7681;}
+.sk.nietthuis{border-color:#f97316;color:#f97316;}
+.sk.vorigjaar{border-color:#eab308;color:#eab308;}
+.datum-rij{display:flex;gap:5px;align-items:center;margin-bottom:6px;}
+.datum-rij input{flex:1;background:#21262d;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:5px 8px;}
+.opsl-btn{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:6px 10px;border-radius:5px;border:1px solid #58a6ff;background:#1a3a5c;color:#58a6ff;cursor:pointer;white-space:nowrap;}
+.opsl-btn:active{opacity:.7;}
+#update-status{font-size:10px;font-family:'IBM Plex Mono',monospace;color:#6e7681;text-align:center;min-height:14px;}
 .leaflet-div-icon{background:transparent!important;border:none!important;}
 .leaflet-marker-icon{-webkit-transform-origin:center bottom!important;transform-origin:center bottom!important;}
 .leaflet-container{-webkit-tap-highlight-color:transparent;}
@@ -175,6 +192,7 @@ h1{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5
 //  CONFIG
 // ═══════════════════════════════════
 const CSV_URL       = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQq3URzL5qqMcbj0YLmhXxbT6tlMSW_NBIbEvERhtZMi_Fuxd6JBohNO0lqIuZPgr65AiViZ_qqxEod/pub?output=csv';
+const SCRIPT_URL    = 'https://script.google.com/macros/s/AKfycbwiYNTSZrhgG0XAZaupn-uM43VBXJKWq2coLwwSEUjDjP2bzMpAPJ7YvpK5xTQkMPhd/exec';
 const GEO_CACHE_KEY = 'erfcontrole_geocache_v4';
 const LOG_KEY       = 'erfcontrole_daglog_v2';
 const PROX_ALERT    = 200;
@@ -437,19 +455,91 @@ function showDp(id) {
   const opmTxt=l.opmerking?`<div class="opm">✉️ ${l.opmerking}</div>`:'';
   const ntTxt=l.lgwDatum?`<div class="dd">🚗 LGW: ${l.lgwDatum}</div>`:'';
   const zakTxt=l.zaknummer?`<div class="dd">📁 Zaaknummer: ${l.zaknummer}</div>`:'';
+  const vandaag = new Date().toISOString().split('T')[0];
   document.getElementById('dpc').innerHTML=`
     ${oppasTxt}
     <div class="dn">${l.naam}</div>
     <div class="da">📍 ${l.straat} ${l.nr}<br>${l.postcode} ${l.plaats}</div>
     ${datumTxt}${ntTxt}${zakTxt}${opmTxt}${herTxt}
     <span class="badge ${BCLS[s]}">${LBL[s]}</span>
-    <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>`;
+    <button class="dnav" onclick="navTo(${l.lat},${l.lon})">🗺&nbsp; Navigeer hierheen</button>
+    <div class="update-panel">
+      <div class="update-titel">STATUS WIJZIGEN</div>
+      <div class="status-knoppen">
+        <button class="sk goed" onclick="updateStatus(${l.id},'Goed')">✅ Goed</button>
+        <button class="sk her" onclick="updateStatus(${l.id},'Hercontrole')">⚠️ Hercontrole</button>
+        <button class="sk fout" onclick="updateStatus(${l.id},'Fout')">❌ Fout</button>
+        <button class="sk nietthuis" onclick="updateStatus(${l.id},'Niet thuis')">🏠 Niet thuis</button>
+        <button class="sk gestopt" onclick="updateStatus(${l.id},'Gestopt')">⏹ Gestopt</button>
+        <button class="sk vorigjaar" onclick="updateStatus(${l.id},'Vorig jaar gedaan')">⚠️ Vorig jaar</button>
+      </div>
+      <div class="update-titel">DATUM</div>
+      <div class="datum-rij">
+        <input type="date" id="update-datum-${l.id}" value="${vandaag}"/>
+        <button class="opsl-btn" onclick="slaOpInSheet(${l.id})">💾 Opslaan</button>
+      </div>
+      <div id="update-status"></div>
+    </div>`;
   document.getElementById('dp').style.display='block';
   document.getElementById('fp').style.display='none';
   document.getElementById('bfp').classList.remove('on');
 }
 function closeDp(){selId=null;document.getElementById('dp').style.display='none';render();}
 function navTo(lat,lon){window.open(`https://maps.google.com/?daddr=${lat},${lon}`,'_blank');}
+
+// Geselecteerde nieuwe status bijhouden per bedrijf
+let nieuweStatus = {};
+
+function updateStatus(id, status) {
+  nieuweStatus[id] = status;
+  // Highlight geselecteerde knop
+  document.querySelectorAll('.sk').forEach(b => b.style.fontWeight = '400');
+  event.target.style.fontWeight = '700';
+  document.getElementById('update-status').textContent = `Status geselecteerd: ${status}`;
+}
+
+async function slaOpInSheet(id) {
+  const loc = LOCS.find(l => l.id === id);
+  if (!loc) return;
+  const status = nieuweStatus[id];
+  const datumEl = document.getElementById('update-datum-' + id);
+  const datum = datumEl ? datumEl.value : '';
+  const statusEl = document.getElementById('update-status');
+
+  if (!status && !datum) {
+    statusEl.textContent = '⚠️ Selecteer eerst een status';
+    return;
+  }
+
+  statusEl.textContent = '⏳ Opslaan...';
+  statusEl.style.color = '#8b949e';
+
+  try {
+    const resp = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({naam: loc.naam, status: status || loc.status, datum})
+    });
+
+    // no-cors geeft geen response terug - we gaan er vanuit dat het gelukt is
+    // Update lokaal meteen
+    if (status) loc.status = parseStatus(status);
+    if (datum) loc.datum = datum;
+    delete nieuweStatus[id];
+
+    statusEl.style.color = '#3fb950';
+    statusEl.textContent = '✅ Opgeslagen in sheet!';
+    render();
+
+    // Sync na 2 seconden om te bevestigen
+    setTimeout(async () => { await syncSheets(); }, 2000);
+
+  } catch(e) {
+    statusEl.style.color = '#f85149';
+    statusEl.textContent = '⚠️ Fout: ' + e.message;
+  }
+}
 
 // ═══════════════════════════════════
 //  RIT STATISTIEKEN
