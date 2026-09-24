@@ -231,6 +231,10 @@ map.getPane('markers').style.zIndex = 650;
 map.getPane('markers').style.pointerEvents = 'auto';
 
 let LOCS=[], markers=[], selId=null;
+// Onthoudt recent lokaal opgeslagen statuswijzigingen, zodat een trage/gecachte
+// Google Sheets CSV-publicatie deze niet meteen weer overschrijft.
+let localOverrides = {};
+const OVERRIDE_GRACE_MS = 10*60*1000; // 10 minuten
 let carMarker=null, gpsOn=false, gpsWatcher=null;
 let myLat=null, myLon=null, myHeading=0, mySpeed=0;
 let wakeLock=null;
@@ -517,16 +521,23 @@ async function slaOpInSheet(id) {
   try {
     const resp = await fetch(SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'text/plain;charset=utf-8'}, // voorkomt CORS-preflight; script leest dit gewoon als JSON
       body: JSON.stringify({naam: loc.naam, status: status || loc.status, datum})
     });
+    const result = await resp.json();
 
-    // no-cors geeft geen response terug - we gaan er vanuit dat het gelukt is
-    // Update lokaal meteen
+    if (!result.success) {
+      statusEl.style.color = '#f85149';
+      statusEl.textContent = '⚠️ ' + (result.error || 'Opslaan mislukt');
+      return;
+    }
+
+    // Bevestigd door het script: update lokaal
     if (status) loc.status = parseStatus(status);
     if (datum) loc.datum = datum;
     delete nieuweStatus[id];
+    // Bescherm deze wijziging tegen een nog niet-ververste (gecachte) sheet-CSV
+    localOverrides[id] = {status: loc.status, datum: loc.datum, ts: Date.now()};
 
     statusEl.style.color = '#3fb950';
     statusEl.textContent = '✅ Opgeslagen in sheet!';
@@ -741,7 +752,25 @@ async function refreshAll(){
 async function syncSheets(){
   try{
     const raw=await loadFromSheet();
-    raw.forEach(r=>{const ex=LOCS.find(l=>l.naam===r.naam);if(ex){ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.lgwDatum=r.lgwDatum;ex.zaknummer=r.zaknummer;ex.oppassen=r.oppassen;}});
+    raw.forEach(r=>{
+      const ex=LOCS.find(l=>l.naam===r.naam);
+      if(!ex)return;
+      const ov=localOverrides[ex.id];
+      if(ov){
+        if(Date.now()-ov.ts>OVERRIDE_GRACE_MS){
+          // Grace-periode voorbij: sheet mag nu leidend zijn, override opruimen
+          delete localOverrides[ex.id];
+        }else if(r.status===ov.status){
+          // Sheet is inmiddels bijgewerkt en komt overeen: override niet meer nodig
+          delete localOverrides[ex.id];
+        }else{
+          // Sheet-CSV is nog niet ververst (gecachet) — behoud onze lokale status/datum
+          ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.lgwDatum=r.lgwDatum;ex.zaknummer=r.zaknummer;ex.oppassen=r.oppassen;
+          return;
+        }
+      }
+      ex.status=r.status;ex.datum=r.datum;ex.herDatum=r.herDatum;ex.opmerking=r.opmerking;ex.lgwDatum=r.lgwDatum;ex.zaknummer=r.zaknummer;ex.oppassen=r.oppassen;
+    });
     const nieuw=raw.filter(r=>!LOCS.find(l=>l.naam===r.naam));
     if(nieuw.length>0){const g=await geocodeAll(nieuw);LOCS=[...LOCS,...g];}
     alertGetoond.clear();herAlertGetoond.clear();
