@@ -207,8 +207,8 @@ const map = L.map('map', {
   touchZoom: true, bounceAtZoomLimits: false
 }).setView([53.08, 6.37], 13);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  {attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19}).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'© OpenStreetMap-bijdragers', maxZoom:19}).addTo(map);
 
 // Noordpijl
 const noordpijl = L.control({position:'topright'});
